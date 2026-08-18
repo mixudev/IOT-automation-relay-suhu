@@ -1,8 +1,8 @@
 <div align="center">
 
-# 🛠️ IOT Automation Relay Suhu
+# IOT Automation Relay Suhu
 
-### ESP8266 NodeMCU — 4× Relay + DHT22 (Suhu & Kelembapan) — Diotrol dari Web Lokal & Jarak Jauh
+### ESP8266 NodeMCU — 4× Relay + DHT22 (Suhu & Kelembapan) — Dikontrol dari Web Lokal & Jarak Jauh
 
 **Kontrol relay ON/OFF dari rumah & internet, tanpa backend, tanpa port forwarding.**
 
@@ -10,41 +10,57 @@
 
 [![PlatformIO](https://img.shields.io/badge/PlatformIO-FF8000?style=for-the-badge&logo=platformio&logoColor=white)](https://platformio.org)
 [![ESP8266](https://img.shields.io/badge/MCU-ESP8266%20NodeMCU-00979D?style=for-the-badge&logo=espressif&logoColor=white)](https://www.espressif.com/en/products/modules/esp8266)
-[![HiveMQ MQTT](https://img.shields.io/badge/MQTT-HiveMQ%20Cloud-FF6600?style=for-the-badge&logo=eclipse-mosquitto&logoColor=white)](https://www.hivemq.com/mqtt-cloud-broker/)
+[![MQTT](https://img.shields.io/badge/MQTT-HiveMQ%20Cloud-FF6600?style=for-the-badge&logo=eclipse-mosquitto&logoColor=white)](https://www.hivemq.com/mqtt-cloud-broker/)
 [![Vercel](https://img.shields.io/badge/Hosting-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com)
 [![Sensor](https://img.shields.io/badge/Sensor-DHT22-00897B?style=for-the-badge&logo=probot&logoColor=white)](https://learn.adafruit.com/dht)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
 <br>
 
-| Status | Mode | Remote Access |
-|--------|------|---------------|
-| ✅ **Lokal** | Web Server ESP8266 | `http://192.168.1.177/` |
-| ✅ **Jarak Jauh** | MQTT via HiveMQ + Vercel | `https://iot-relay-ten.vercel.app/` |
+| Mode | Metode | Akses |
+|------|--------|-------|
+| Lokal | Web Server ESP8266 | `http://192.168.1.177/` |
+| Jarak Jauh | MQTT via HiveMQ + Vercel | `https://iot-relay-ten.vercel.app/` |
 
 </div>
 
 ---
 
-## 🚀 Fitur
+## Daftar Isi
 
-- ⚡ **4 chanel relay** (ON/OFF) — kontrol satuan atau semua sekaligus.
-- 🌡️ **Sensor DHT22** suhu + kelembapan dengan filter: *median 5 sampel*, *anti-spike*, *validitas data* → tahan error baca acak.
-- 🖥️ **Web lokal** langsung dari ESP8266 (tanpa cloud, tanpa internet).
-- ☁️ **Web remote** statis di Vercel — terhubung ke ESP **lewat broker MQTT** (HiveMQ Cloud, free tier).
-- 🔐 **TLS penuh**: firmware `WiFiClientSecure` (port 8883), web **WSS** (port 8884).
-- 🔒 **Anti-hacking ringan**: parser MQTT di-hardening, kunci akses web lokal (`?key=`), kredensial MQTT wajib auth.
-- 💾 **Hemat daya**: `WiFi.setSleepMode(WIFI_MODEM_SLEEP)` saat idle.
-- 🎨 **Grafik canvas** di web remote untuk riwayat suhu/kelembapan.
+- [Fitur](#fitur)
+- [Cara Kerja (Arsitektur)](#cara-kerja-arsitektur)
+- [Wiring](#wiring)
+- [Struktur Proyek](#struktur-proyek)
+- [Pengaturan & Konfigurasi](#pengaturan--konfigurasi)
+- [Cara Menjalankan](#cara-menjalankan)
+- [Keamanan](#keamanan)
+- [Troubleshoot](#troubleshoot)
+- [Dokumentasi Lain](#dokumentasi-lain)
+- [Lisensi](#lisensi)
 
 ---
 
-## 🧠 Cara Kerja (Arsitektur)
+## Fitur
+
+- **4 kanal relay** (ON/OFF) — kontrol satuan atau semua sekaligus.
+- **Sensor DHT22** suhu + kelembapan dengan filter *median 5 sampel*, *anti-spike*, dan *validitas data* — tahan terhadap pembacaan acak (garbage).
+- **Web lokal** langsung dari ESP8266 (tanpa cloud, tanpa internet).
+- **Web remote** statis di Vercel — terhubung ke ESP melalui broker MQTT (HiveMQ Cloud, free tier).
+- **TLS penuh**: firmware `WiFiClientSecure` (port 8883), web **WSS** (port 8884).
+- **Keamanan berlapis**: parser MQTT di-hardening, kunci akses web lokal (`?key=`), kredensial MQTT wajib auth.
+- **Hemat daya**: `WiFi.setSleepMode(WIFI_MODEM_SLEEP)` saat idle.
+- **Grafik canvas** di web remote untuk riwayat suhu/kelembapan.
+
+---
+
+## Cara Kerja (Arsitektur)
 
 Kontrol jarak jauh **tanpa port forwarding** karena ESP8266 hanya membuat **koneksi keluar**
-ke broker. Web & ESP sama-sama *pub/sub* ke topik MQTT yang sama — tidak perlu server backend.
+ke broker. Web dan ESP sama-sama *pub/sub* ke topik MQTT yang sama — tidak perlu server backend.
 
 ```
-🌐 Browser (Vercel, HTTPS)
+Browser (Vercel, HTTPS)
         │
         │ WSS (port 8884)  ────►  broker MQTT (HiveMQ Cloud, free tier)
         ▼                                  ▲
@@ -67,7 +83,7 @@ ke broker. Web & ESP sama-sama *pub/sub* ke topik MQTT yang sama — tidak perlu
 
 ---
 
-## 🔌 Wiring
+## Wiring
 
 | Komponen | Pin NodeMCU | GPIO |
 |----------|-------------|------|
@@ -80,39 +96,40 @@ ke broker. Web & ESP sama-sama *pub/sub* ke topik MQTT yang sama — tidak perlu
 | DHT22 VCC | 3V3 | – |
 | DHT22 GND | GND | – |
 
-> ⚠️ Relay modul bersifat **ACTIVE LOW** (`LOW` = ON, `HIGH` = OFF). Setel `RELAY_ACTIVE_LOW` di `src/config.h` jika modul Anda kebalikan.
-> ⚠️ DHT22 butuh daya **3.3–5.5V**; pakai 5V bila pembacaan tidak stabil.
+> **PERHATIAN:** Modul relay bersifat **ACTIVE LOW** (`LOW` = ON, `HIGH` = OFF). Setel `RELAY_ACTIVE_LOW` di `src/config.h` jika modul Anda kebalikannya.
+>
+> **PERHATIAN:** DHT22 butuh daya **3.3–5.5V**; gunakan 5V bila pembacaan tidak stabil.
 
 ---
 
-## 📁 Struktur Proyek
+## Struktur Proyek
 
 ```
 IOT-01/
-├── .env / .env.example     # kredensial (rahasia → jangan commit .env!)
+├── .env / .env.example     # kredensial (rahasia -> jangan commit .env!)
 ├── flash.ps1               # generate secrets + build/upload firmware
 ├── platformio.ini          # config PlatformIO
 ├── PINOUT.md               # dokumentasi wiring & teknis lengkap
 ├── AGENTS.md               # panduan kerja untuk AI/agent/kontributor
 ├── scripts/
-│   └── gen_secrets.ps1     # .env → src/secrets.h
+│   └── gen_secrets.ps1     # .env -> src/secrets.h
 ├── src/                    # firmware ESP8266 (modular)
 │   ├── main.cpp            # setup + loop
 │   ├── config.h            # konfigurasi non-rahasia
 │   ├── relay/ sensor/ status/ mqttclient/ webserver/ webpage/
-├── web/                    # aplikasi web remote → Vercel
-│   ├── index.html, app.js, style.css
-│   ├── config.template.js / config.gen.js
-│   ├── scripts/build-config.js
-│   └── package.json, vercel.json
+└── web/                    # aplikasi web remote -> Vercel
+    ├── index.html, app.js, style.css
+    ├── config.template.js / config.gen.js
+    ├── scripts/build-config.js
+    └── package.json, vercel.json
 ```
 
 ---
 
-## ⚙️ Pengaturan & Konfigurasi
+## Pengaturan & Konfigurasi
 
-Semua rahasia (WiFi, MQTT, deviceId) disimpan **di satu file `.env`** di root,
-kelak di-generate ke `src/secrets.h` & `web/config.gen.js` (keduanya **anti-commit**).
+Semua nilai rahasia (WiFi, MQTT, deviceId) disimpan di satu file **`.env`** di root,
+lalu di-generate ke `src/secrets.h` dan `web/config.gen.js` (keduanya **anti-commit**).
 
 ```ini
 # salin .env.example menjadi .env, lalu isi nilai asli
@@ -126,12 +143,12 @@ MQTT_BROKER_URL=wss://xxx.s1.eu.hivemq.cloud:8884/mqtt
 DEVICE_ID=iot_fcd5dea964a4
 ```
 
-> ⛔ **JANGAN pernah commit** `.env`, `src/secrets.h`, atau `web/config.gen.js`.
+> **PENTING:** Jangan pernah commit `.env`, `src/secrets.h`, atau `web/config.gen.js`.
 > `.gitignore` sudah meng-exclude semuanya.
 
 ---
 
-## 🛠️ Cara Menjalankan
+## Cara Menjalankan
 
 ### Firmware (ESP8266)
 
@@ -143,7 +160,7 @@ powershell -ExecutionPolicy Bypass -File flash.ps1 -Target build
 powershell -ExecutionPolicy Bypass -File flash.ps1
 ```
 
-- Setelah upload, buka **serial monitor (baud 9600)** → akan muncul `Connecting MQTT... connected!`.
+- Setelah upload, buka **serial monitor (baud 9600)** hingga muncul `Connecting MQTT... connected!`.
 - Akses web lokal di `http://192.168.1.177/`.
 
 ### Web remote (Vercel)
@@ -167,38 +184,40 @@ cd web && vercel --prod --yes
 
 ---
 
-## 🔐 Keamanan
+## Keamanan
 
-- **TLS**: firmware `WiFiClientSecure` + `setInsecure()` (tanpa verifikasi sertifikat — cukup untuk hobi).
+- **TLS**: firmware `WiFiClientSecure` + `setInsecure()` (tanpa verifikasi sertifikat — cukup untuk proyek hobi).
 - **Auth MQTT**: broker wajib `username`/`password`.
 - **Parser di-hardening**: tolak payload kosong/ambigu > 128B; relay divalidasi 1–4.
-- **Kunci web lokal** (`WEB_ACCESS_KEY`) wajib di `?key=` untuk endpoint kontrol.
-- ⚠️ Karena **tanpa backend**, kredensial MQTT tetap terbaca di *Inspect* browser → batasi siapa yang menerima URL halaman.
+- **Kunci web lokal** (`WEB_ACCESS_KEY`) wajib disertakan di `?key=` untuk endpoint kontrol.
+- **Catatan:** karena tanpa backend, kredensial MQTT tetap terbaca di *Inspect* browser — batasi siapa yang menerima URL halaman.
 
 ---
 
-## 🧪 Troubleshoot
+## Troubleshoot
 
 | Gejala | Solusi |
 |--------|--------|
 | Upload gagal `PermissionError(13)` | Tutup serial monitor/PuTTY yang memegang COM3 |
 | Suhu tidak muncul (`--.-`) | Cek pin D7, daya 3.3–5.5V, pull-up 4.7k–10k, kabel < 20 cm |
-| Suhu aneh (mis. `1.2°C`) | Daya rendah / sensor imitasi → pakai 5V & DHT22 asli |
+| Suhu aneh (mis. `1.2°C`) | Daya rendah / sensor imitasi — pakai 5V & DHT22 asli |
 | Web remote tidak konek | Cek `DEVICE_ID` & topik sama antara web dan firmware |
 
 ---
 
-## 📚 Lebih Lanjut
+## Dokumentasi Lain
 
-- 📄 **PINOUT.md** — wiring detail, endpoint HTTP, langkah setup, troubleshooting.
-- 🤖 **AGENTS.md** — panduan konsep & aturan kerja untuk AI/agent/kontributor.
+- **PINOUT.md** — wiring detail, endpoint HTTP, langkah setup, troubleshooting.
+- **AGENTS.md** — panduan konsep & aturan kerja untuk AI/agent/kontributor.
 
-## 📜 Lisensi
+---
 
-[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
+## Lisensi
+
+Dilisensikan di bawah [MIT License](LICENSE) © 2026 Lazuardi Mandegar.
 
 ---
 
 <div align="center">
-  <sub>Dibuat dengan ❤️ untuk proyek hobi IoT · ESP8266 · MQTT · Vercel</sub>
+  <sub>ESP8266 · MQTT · Vercel — Proyek Hobi IoT</sub>
 </div>
