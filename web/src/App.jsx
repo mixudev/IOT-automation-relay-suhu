@@ -25,10 +25,6 @@ const ICONS = {
   ),
 };
 
-function isIcon(id) {
-  return id;
-}
-
 export default function App() {
   const [page, setPage] = useState("dashboard");
 
@@ -50,7 +46,13 @@ export default function App() {
   };
 
   const connLabel =
-    conn === "online" ? "Terhubung" : conn === "offline" ? "Terputus" : "Menghubungkan…";
+    conn === "online" ? "Online" : conn === "offline" ? "Offline" : "…";
+  const connTitle =
+    conn === "online"
+      ? "Terhubung"
+      : conn === "offline"
+        ? "Terputus"
+        : "Menghubungkan…";
 
   const renderPage = () => {
     switch (page) {
@@ -67,11 +69,10 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* Sidebar / desktop */}
-      <aside className="sidebar">
+      <header className="appbar">
         <div className="brand">
           <div className="logo">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none">
               <circle cx="7" cy="17" r="2.2" fill="#fff" />
               <circle cx="17" cy="7" r="2.2" fill="#fff" fillOpacity="0.9" />
               <path d="M8.6 15.4 15.4 8.6" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
@@ -79,56 +80,28 @@ export default function App() {
           </div>
           <div>
             <div className="brand-name">Relay Control</div>
-            <div className="brand-sub">ESP8266 · MQTT</div>
+            <div className="brand-sub">ESP8266 · v2.0.0</div>
           </div>
         </div>
 
-        <nav className="nav">
-          {NAV.map((item) => (
-            <button
-              key={item.id}
-              className={"nav-item" + (page === item.id ? " active" : "")}
-              onClick={() => setPage(item.id)}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                {ICONS[item.icon]}
-              </svg>
-              {item.label}
-            </button>
-          ))}
-        </nav>
-
-        <div className="nav-foot">v2.0.0 · Automation</div>
-      </aside>
-
-      {/* Main */}
-      <div className="main" style={{ position: "relative" }}>
-        <header className="topbar">
-          <div>
-            <div className="page-title">
-              {NAV.find((n) => n.id === page)?.label}
-            </div>
-            <div className="page-desc">
-              Kontrol relay & automation dari mana saja
-            </div>
+        <div className="appbar-right">
+          {conn === "online" && (
+            <span className="time-badge">{time || "--:--"}</span>
+          )}
+          <div className={"conn-pill " + conn} title={connTitle}>
+            <span className="conn-dot"></span>
+            {connLabel}
           </div>
-          <div className="topbar-right">
-            {conn === "online" && (
-              <span className="time-badge">{time || "--:--"}</span>
-            )}
-            <div className={"conn-pill " + conn}>
-              <span className="conn-dot"></span>
-              {connLabel}
-            </div>
-            <button className="theme-btn" onClick={toggleTheme} aria-label="Ganti tema">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-              </svg>
-            </button>
-          </div>
-        </header>
+          <button className="theme-btn" onClick={toggleTheme} aria-label="Ganti tema">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+            </svg>
+          </button>
+        </div>
+      </header>
 
+      <main className="main">
         {ntpWarning && !ntpSynced && (
           <div className="warn-banner">
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -138,10 +111,16 @@ export default function App() {
           </div>
         )}
 
-        {renderPage()}
-      </div>
+        <div className="page-head">
+          <div className="page-title">
+            {NAV.find((n) => n.id === page)?.label}
+          </div>
+          <div className="page-desc">Kontrol relay & automation</div>
+        </div>
 
-      {/* Bottom nav / mobile */}
+        {renderPage()}
+      </main>
+
       <nav className="bottom-nav">
         {NAV.map((item) => (
           <button
@@ -149,7 +128,7 @@ export default function App() {
             className={"nav-item" + (page === item.id ? " active" : "")}
             onClick={() => setPage(item.id)}
           >
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
               {ICONS[item.icon]}
             </svg>
             {item.label}
