@@ -24,6 +24,7 @@ enum RuleType : uint8_t {
 // - startMin/endMin: menit sejak 00:00. endMin boleh lebih
 //   kecil dari startMin (rentang melewati tengah malam).
 // - onValue/offValue: nilai sensor (x10, mis. 320 = 32.0C).
+//   int16_t karena kelembapan maks. 100.0% = 1000.
 //   Hysteresis: nyala saat >= onValue, mati saat <= offValue.
 // - priority: 0..10. Bila 2 aturan menyasar relay sama, yang
 //   priority-nya lebih tinggi menang; tie -> id terakhir.
@@ -39,8 +40,8 @@ struct AutomationRule {
   uint8_t  relays;
   uint8_t  type;
   uint8_t  days;
-  int8_t   onValue;
-  int8_t   offValue;
+  int16_t  onValue;
+  int16_t  offValue;
   uint8_t  priority;
 };
 

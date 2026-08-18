@@ -7,8 +7,11 @@
 //   2. file .env (local dev: web/.env, then parent .env)
 // ===========================================================
 
-const fs = require("fs");
-const path = require("path");
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ---- Baca .env (parser minimal, tanpa dependency) ----
 function loadEnvFile(p) {

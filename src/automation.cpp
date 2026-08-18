@@ -361,8 +361,8 @@ static bool evaluateRule(const AutomationRule& r, uint8_t idx) {
         ? getTemperature()
         : getHumidity();
 
-      int8_t onV = r.onValue;
-      int8_t offV = r.offValue;
+      int16_t onV = r.onValue;
+      int16_t offV = r.offValue;
 
       // Hysteresis: nyala saat >= on, mati saat <= off
       if (ruleActive[idx]) {

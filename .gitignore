@@ -17,6 +17,8 @@ Thumbs.db
 # Node
 node_modules/
 npm-debug.log
+web/dist/
+web/node_modules/
 
 # =====================================================
 # RAHASIA - JANGAN PERNAH DI-COMMIT

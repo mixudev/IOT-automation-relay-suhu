@@ -68,8 +68,9 @@ IP statis ESP8266 di-set ke `192.168.1.177` (lihat `src/config.h`). Sesuaikan ga
 | Endpoint        | Method | Deskripsi                                    |
 |-----------------|--------|----------------------------------------------|
 | `/`             | GET    | Halaman web utama                            |
-| `/status`       | GET    | JSON status semua relay + suhu + kelembapan  |
-| `/sensor`       | GET    | JSON suhu & kelembapan DHT11                 |
+| `/status`       | GET    | JSON status relay + suhu + kelembapan        |
+| `/sensor`       | GET    | JSON suhu & kelembapan DHT22                 |
+| `/config`       | GET    | JSON aturan automation + mode relay (dari LittleFS) |
 | `/relay/1/on`   | GET    | Nyalakan relay 1                             |
 | `/relay/1/off`  | GET    | Matikan relay 1                              |
 | `/relay/2/on`   | GET    | Nyalakan relay 2                             |
@@ -118,6 +119,8 @@ Dideklarasikan di `platformio.ini`:
 
 - `adafruit/DHT sensor library`
 - `adafruit/Adafruit Unified Sensor`
+- `bblanchon/ArduinoJson` (parsing config/status JSON)
+- `knolleary/PubSubClient` (MQTT TLS), `LittleFS` (persist aturan)
 
 ## Struktur File (Modular)
 
@@ -128,24 +131,23 @@ src/
 ├── secrets.h        # D/GENERATE otomatis dari .env (JANGAN di-commit)
 ├── relay.h/.cpp     # kontrol relay + state
 ├── sensor.h/.cpp    # baca DHT (median filter, anti-spike, validitas data)
-├── status.h/.cpp    # JSON status & sensor (dipakai webserver + MQTT)
-├── mqttclient.h/.cpp# koneksi MQTT TLS (HiveMQ Cloud) + parser perintah
+├── automation.h/.cpp# mesin aturan (time/temp/hum/sched_temp) + persist LittleFS
+├── timeSync.h/.cpp  # sinkronisasi waktu NTP (untuk aturan jadwal)
+├── status.h/.cpp    # JSON status, sensor & config (dipakai webserver + MQTT)
+├── mqttclient.h/.cpp# MQTT TLS (HiveMQ) + parser perintah & aturan
 ├── webserver.h/.cpp # route HTTP lokal + endpoint JSON
 └── webpage.h/.cpp   # halaman web HTML (terpisah agar mudah diedit)
 
 scripts/
 └── gen_secrets.ps1  # .env -> src/secrets.h
 
-web/                 # aplikasi web untuk Vercel (remote control)
-├── index.html       # UI
-├── style.css        # styling
-├── app.js           # logika MQTT + kontrol + grafik
+web/                 # aplikasi web React (SPA) untuk Vercel
+├── index.html       # entry (memuat /src/main.jsx)
 ├── config.template.js # template config (placeholder, bisa di-commit)
 ├── config.gen.js    # D/GENERATE dari env (JANGAN di-commit)
 ├── scripts/build-config.js # env/.env -> config.gen.js
-├── package.json
-├── vercel.json
-└── vendor/mqtt.min.js
+├── vite.config.js, package.json, vercel.json
+└── src/             # React (App, pages, Zustand stores, komponen)
 
 flash.ps1            # generate secrets + build/upload firmware
 .env                 # semua kredensial (JANGAN di-commit)
@@ -178,9 +180,25 @@ Prefix topik = `DEVICE_ID` (dari `.env`), saat ini `iot_fcd5dea964a4`.
 
 | Topik              | Arah     | Isi                                              |
 |--------------------|----------|--------------------------------------------------|
-| `iot_fcd5dea964a4/command` | Web → ESP | `{"all":"on"}` / `{"all":"off"}` / `{"relay":2,"state":"on"}` |
-| `iot_fcd5dea964a4/status`  | ESP → Web | `{"relay1":false,...,"temperature":30.0,"humidity":65.0}` |
+| `iot_fcd5dea964a4/command` | Web → ESP | `{"all":"on"}` / `{"all":"off"}` / `{"relay":2,"state":"on"}` / `{"relay":2,"mode":"auto"\|"manual"}` / `{"relay":2,"name":"..."}` / `{"reboot":true}` |
+| `iot_fcd5dea964a4/status`  | ESP → Web | `{"relay1":false,...,"temperature":30.0,"humidity":65.0,"relayModes":[...],"relayNames":[...],"time":"12:30","ntpSynced":true}` |
 | `iot_fcd5dea964a4/sensor`  | ESP → Web | `{"temperature":30.0,"humidity":65.0}`          |
+| `iot_fcd5dea964a4/config/set` | Web → ESP | `{"v":1,"rules":[...]}` — simpan aturan automation (LittleFS) |
+| `iot_fcd5dea964a4/config/get` | Web → ESP | `{}` — minta kirim konfigurasi saat ini         |
+| `iot_fcd5dea964a4/config/resp` | ESP → Web | `{"ok":true,"rules":[...]}` / `{"ok":false,"error":"no_relay_selected"}` |
+| `iot_fcd5dea964a4/event`  | ESP → Web | `{"relay":1,"state":"on","source":"rule","ruleName":"..."}` |
+
+### Automation (sumber kebenaran di ESP8266)
+
+- 4 tipe aturan: `time` (jadwal harian), `temp` (suhu), `hum` (kelembapan),
+  `sched_temp` (jadwal + ambang suhu).
+- Setiap aturan berisi relay target, hari aktif (0=Sen..6=Min), rentang `startMin`/`endMin`
+  (menit sejak 00:00), ambang sensor `onValue`/`offValue` (satuan `x10`), `priority`,
+  `cooldownSec`, dan `enabled`.
+- Rule `temp`/`hum`/`sched_temp` memakai hysteresis: nyala saat `>= onValue`, mati saat
+  `<= offValue`. Semua aturan otomatis **dilewati** bila data sensor tidak valid.
+- Persist di LittleFS (`auto.bin`). Mode per-relay `auto`/`manual` disimpan juga —
+  kontrol manual otomatis mengalihkan mode ke `manual`.
 
 ### Langkah Setup
 
@@ -189,21 +207,18 @@ Prefix topik = `DEVICE_ID` (dari `.env`), saat ini `iot_fcd5dea964a4`.
    - Build upload: `powershell -ExecutionPolicy Bypass -File flash.ps1` (atau `flash.ps1 -Target build` untuk compile saja).
    - Di serial monitor akan tampil `Connecting MQTT... connected!`.
 
-2. **Web lokal (`web/`)**:
-   - Jalankan `node web\scripts\build-config.js` dari root → menghasilkan `web/config.gen.js` dari `.env` (file ini jangan di-commit). Buka `web/index.html` di browser.
+2. **Web remote (React, `web/`)**:
+   - Generate config dari `.env`: `node web\scripts\build-config.js` (menulis `web/config.gen.js` — jangan di-commit).
+   - Build/dev: `cd web && npm install && npm run build` (output `web/dist/`).
+   - Uji lokal: `cd web && npm run dev` → Vite akan menyajikan aplikasi dengan config dari `.env`.
 
-3. **Deploy ke Vercel** (dari GitHub):
+3. **Deploy ke Vercel**:
    ```
    cd web
-   git init
-   git add .
-   git commit -m "deploy: remote relay web"
-   git remote add origin https://github.com/USERNAMA/REPO.git
-   git branch -M main
-   git push -u origin main
+   vercel --prod --yes   # package.json: build = node scripts/build-config.js && vite build
    ```
-   - Import repo ke [vercel.com](https://vercel.com) → *Import Git Repository*.
-   - Framework preset: **Other**. Build command: `npm install && npm run build` (dari `package.json`). Output directory: default.
+   - (Alternatif) import repo ke [vercel.com](https://vercel.com) → *Import Git Repository*.
+   - Build command: `npm install && npm run build` (di `package.json`). Output directory: `dist` (di `vercel.json`).
    - Set **Environment Variables** di Vercel: `MQTT_BROKER_URL`, `MQTT_USER`, `MQTT_PASS`, `DEVICE_ID`.
    - Selesai: web remote tersedia di URL `https://...vercel.app`.
 

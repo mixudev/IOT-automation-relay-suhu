@@ -2,205 +2,29 @@
 <html lang="id">
 
 <head>
-
   <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-  >
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#F2F3F5">
-
-  <title>Relay Controller — Remote</title>
+  <title>Relay Automation — Remote</title>
 
   <script>
     (function () {
       var saved = localStorage.getItem("theme");
       var theme = saved || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
       document.documentElement.setAttribute("data-theme", theme);
+      var meta = document.querySelector('meta[name="theme-color"]');
+      meta.setAttribute("content", theme === "dark" ? "#14161C" : "#F2F3F5");
     })();
   </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@700;800&family=JetBrains+Mono:wght@500;600;700&display=swap"
-    rel="stylesheet"
-  >
-
-  <link
-    rel="stylesheet"
-    href="style.css"
-  >
-
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 </head>
 
 <body>
-
-  <div class="container">
-
-    <div class="header">
-
-      <div class="brand">
-
-        <div class="logo">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="7" cy="17" r="2.2" style="fill:var(--accent)" />
-            <circle cx="17" cy="7" r="2.2" fill="#FFFFFF" fill-opacity="0.9" />
-            <path d="M8.6 15.4L15.4 8.6" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" />
-          </svg>
-        </div>
-
-        <div>
-
-          <div class="title">
-            Relay Controller
-          </div>
-
-          <div class="subtitle">
-            Remote · MQTT · ESP8266
-          </div>
-
-        </div>
-
-      </div>
-
-      <div class="header-actions">
-
-        <div class="connection">
-
-          <div
-            id="dot"
-            class="dot off"
-          ></div>
-
-          <span id="connection">
-            Menghubungkan…
-          </span>
-
-        </div>
-
-        <button
-          class="theme-toggle"
-          type="button"
-          onclick="toggleTheme()"
-          aria-label="Ganti tema terang/gelap"
-        >
-          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <circle cx="12" cy="12" r="4"></circle>
-            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
-          </svg>
-          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
-          </svg>
-        </button>
-
-      </div>
-
-    </div>
-
-    <div class="sensor">
-
-      <div class="sensor-card">
-
-        <div class="card-top">
-          <span class="eyebrow">Suhu</span>
-          <span class="chip">DHT11</span>
-        </div>
-
-        <div class="sensor-values">
-          <div>
-            <div id="temp" class="sensor-value">--.-°C</div>
-            <div class="sensor-label">Suhu Ruang</div>
-          </div>
-        </div>
-
-      </div>
-
-      <div class="sensor-card">
-
-        <div class="card-top">
-          <span class="eyebrow">Kelembapan</span>
-          <span class="chip">Live</span>
-        </div>
-
-        <div class="sensor-values">
-          <div>
-            <div id="hum" class="sensor-value">--%</div>
-            <div class="sensor-label">Kelembapan</div>
-          </div>
-        </div>
-
-      </div>
-
-    </div>
-
-    <div class="chart-card">
-
-      <div class="card-top">
-        <span class="eyebrow">Riwayat 60 titik data</span>
-      </div>
-
-      <div class="legend-row">
-        <span class="legend legend--temp">Suhu (°C)</span>
-        <span class="legend legend--hum">Kelembapan (%)</span>
-      </div>
-
-      <canvas
-        id="tempChart"
-        width="700"
-        height="200"
-      ></canvas>
-
-    </div>
-
-    <div class="section-heading">
-      <h2>Channel Relay</h2>
-      <span class="eyebrow">4 output</span>
-    </div>
-
-    <div
-      id="relayGrid"
-      class="grid"
-    ></div>
-
-    <div class="footer">
-      ESP8266 · Remote Relay Controller
-    </div>
-
-  </div>
-
-  <div class="actions">
-
-    <button
-      class="btn-off"
-      onclick="setAll(false)"
-    >
-      Matikan Semua
-    </button>
-
-    <button
-      class="btn-on"
-      onclick="setAll(true)"
-    >
-      Nyalakan Semua
-    </button>
-
-  </div>
-
-  <script
-    src="vendor/mqtt.min.js"
-  ></script>
-
-  <script
-    src="config.gen.js"
-  ></script>
-
-  <script
-    src="app.js"
-  ></script>
-
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
 </body>
 
 </html>

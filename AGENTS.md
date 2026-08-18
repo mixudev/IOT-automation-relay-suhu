@@ -34,6 +34,16 @@ Browser (Vercel, HTTPS)  ──WSS──►  Broker MQTT (HiveMQ Cloud)
 - Tanpa backend = kredensial MQTT tetap ada di JavaScript sisi klien (diterima untuk
   proyek hobi; batasi siapa yang menerima URL halaman).
 
+### Mesin Automation (di ESP8266)
+
+- **Sumber kebenaran aturan = di ESP8266** (persisted di LittleFS, file `auto.bin`).
+  Web hanya editor; setiap perubahan dikirim via `config/set` lalu ESP membalas `config/resp`.
+- 4 tipe aturan: `time` (jadwal harian), `temp` (suhu), `hum` (kelembapan), `sched_temp`
+  (jadwal + ambang suhu). Setiap aturan punya prioritas, cooldown, dan daftar relay target.
+- Mode per-relay `auto`/`manual` menentukan apakah aturan boleh mengontrol relay itu;
+  kontrol manual dari web **mengambil alih** mode ke `manual`. Nilai sensor memakai
+  satuan `x10` (mis. 32.0°C = 320).
+
 ---
 
 ## 2. Struktur Proyek
@@ -50,23 +60,30 @@ Browser (Vercel, HTTPS)  ──WSS──►  Broker MQTT (HiveMQ Cloud)
 │   └── gen_secrets.ps1   # .env → src/secrets.h
 ├── src/
 │   ├── main.cpp          # setup() + loop() (orchestrasi)
-│   ├── config.h          # konfigurasi non-rahasia (pin, IP, deviceId scaffold)
+│   ├── config.h          # konfigurasi non-rahasia (pin, IP, MAX_RULES, NTP)
 │   ├── secrets.h         # GENERATED dari .env (anti commit)
 │   ├── relay.h/.cpp      # kontrol relay + state
 │   ├── sensor.h/.cpp     # DHT22: median filter, anti-spike, validitas data
-│   ├── status.h/.cpp     # JSON status & sensor (dipakai web + MQTT)
-│   ├── mqttclient.h/.cpp # MQTT TLS (setInsecure), reconnect non-blocking, parser perintah
+│   ├── automation.h/.cpp # mesin aturan (jadwal/suhu/lembap) + persist LittleFS
+│   ├── timeSync.h/.cpp   # sinkronisasi waktu NTP (untuk aturan jadwal)
+│   ├── status.h/.cpp     # JSON status, sensor & config (web + MQTT)
+│   ├── mqttclient.h/.cpp # MQTT TLS, reconnect non-blocking, parser perintah & aturan
 │   ├── webserver.h/.cpp  # endpoint HTTP lokal
 │   └── webpage.h/.cpp    # halaman web HTML yang disajikan ESP
-└── web/                  # aplikasi web remote → deploy ke Vercel
-    ├── index.html        # UI (memuat config.gen.js)
-    ├── app.js            # logika MQTT WSS + kontrol + grafik canvas
-    ├── style.css
+└── web/                  # aplikasi web React (SPA) → deploy ke Vercel
+    ├── index.html        # entry (memuat /src/main.jsx)
     ├── config.template.js# template placeholder (boleh commit)
     ├── config.gen.js     # GENERATED dari env (anti commit)
     ├── scripts/build-config.js # env/.env → web/config.gen.js
-    ├── package.json, vercel.json
-    └── vendor/mqtt.min.js
+    ├── vite.config.js, package.json, vercel.json
+    └── src/
+        ├── main.jsx / App.jsx     # bootstrap + layout + navigasi
+        ├── config.js              # CFG + konstanta bersama (RULE_TYPES, dsb)
+        ├── styles.css             # design system + dark mode
+        ├── mqtt/client.js / router.js # koneksi WSS + routing pesan → store
+        ├── store/                 # Zustand: useAppStore, useRulesStore, useToastStore
+        ├── components/            # ui/, dashboard/, automation/, history/, settings/
+        └── utils/format.js        # helper format (huruf hari, susunan jam, label)
 ```
 
 ---
@@ -137,9 +154,13 @@ Prefix = `DEVICE_ID` (contoh saat ini `iot_fcd5dea964a4`).
 
 | Topik                   | Arah      | Isi                                             |
 |-------------------------|-----------|--------------------------------------------------|
-| `<DEVICE_ID>/command`   | Web → ESP | `{"all":"on"}` / `{"all":"off"}` / `{"relay":2,"state":"on"}` |
-| `<DEVICE_ID>/status`    | ESP → Web | status relay + suhu/lembap terbaru               |
+| `<DEVICE_ID>/command`   | Web → ESP | `{"all":"on"}` / `{"all":"off"}` / `{"relay":2,"state":"on"}` / `{"relay":2,"mode":"auto"|"manual"}` / `{"relay":2,"name":"..."}` / `{"reboot":true}` |
+| `<DEVICE_ID>/status`    | ESP → Web | status relay + suhu/lembap terbaru + relayModes, relayNames, time, ntpSynced |
 | `<DEVICE_ID>/sensor`    | ESP → Web | `{"temperature":30.0,"humidity":65.0}`           |
+| `<DEVICE_ID>/config/set`  | Web → ESP | `{"v":1,"rules":[...]}` — simpan semua aturan (QoS 1) |
+| `<DEVICE_ID>/config/get`  | Web → ESP | `{}` — minta kirim konfigurasi/aturan saat ini   |
+| `<DEVICE_ID>/config/resp` | ESP → Web | `{"ok":true,"rules":[...]}` / `{"ok":false,"error":"no_relay_selected"}` |
+| `<DEVICE_ID>/event`     | ESP → Web | `{"relay":2,"state":"on","source":"rule","ruleName":"..."}` |
 
 - Transport web: **WSS** port 8884; firmware: **TCP+TLS** port 8883 (HiveMQ serverless).
 - Perintah dari broker menggunakan **QoS 1**. Parser di `mqttclient.cpp` menolak payload

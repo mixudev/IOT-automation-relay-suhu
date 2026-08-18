@@ -44,13 +44,18 @@
 ## Fitur
 
 - **4 kanal relay** (ON/OFF) — kontrol satuan atau semua sekaligus.
+- **Mesin automation di perangkat**: aturan berbasis **jadwal harian**, **suhu**, **kelembapan**,
+  dan **jadwal + suhu** (*sched_temp*), lengkap dengan prioritas, cooldown, hysteresis, dan
+  mode per-relay `auto`/`manual` — dieksekusi langsung di ESP8266 (persisted di LittleFS), jadi
+  tetap berjalan walau web/broker tidak aktif.
+- **Sinkronisasi waktu NTP** (WIB, UTC+7) untuk akurasi aturan jadwal.
 - **Sensor DHT22** suhu + kelembapan dengan filter *median 5 sampel*, *anti-spike*, dan *validitas data* — tahan terhadap pembacaan acak (garbage).
 - **Web lokal** langsung dari ESP8266 (tanpa cloud, tanpa internet).
-- **Web remote** statis di Vercel — terhubung ke ESP melalui broker MQTT (HiveMQ Cloud, free tier).
+- **Web remote** (React SPA + MQTT.js) di Vercel — terhubung ke ESP melalui broker MQTT (HiveMQ Cloud, free tier).
 - **TLS penuh**: firmware `WiFiClientSecure` (port 8883), web **WSS** (port 8884).
 - **Keamanan berlapis**: parser MQTT di-hardening, kunci akses web lokal (`?key=`), kredensial MQTT wajib auth.
 - **Hemat daya**: `WiFi.setSleepMode(WIFI_MODEM_SLEEP)` saat idle.
-- **Grafik canvas** di web remote untuk riwayat suhu/kelembapan.
+- **Dashboard React** dengan grafik riwayat suhu/kelembapan (recharts), log aktivitas, dan editor aturan.
 
 ---
 
@@ -77,9 +82,13 @@ Browser (Vercel, HTTPS)
 
 | Topik | Arah | Isi |
 |-----------------------------|-----------|------------------------------------------------|
-| `iot_fcd5dea964a4/command` | Web → ESP | `{"all":"on"}`, `{"all":"off"}`, `{"relay":2,"state":"on"}` |
-| `iot_fcd5dea964a4/status` | ESP → Web | status relay + suhu/lembap terkini |
+| `iot_fcd5dea964a4/command` | Web → ESP | `{"all":"on"}`, `{"all":"off"}`, `{"relay":2,"state":"on"}`, `{"relay":2,"mode":"auto"}`, `{"relay":2,"name":"..."}`, `{"reboot":true}` |
+| `iot_fcd5dea964a4/status` | ESP → Web | status relay + suhu/lembap + relayModes/Names, time, ntpSynced |
 | `iot_fcd5dea964a4/sensor` | ESP → Web | `{"temperature":30.0,"humidity":65.0}` |
+| `iot_fcd5dea964a4/config/set` | Web → ESP | `{"v":1,"rules":[...]}` — simpan aturan automation |
+| `iot_fcd5dea964a4/config/get` | Web → ESP | `{}` — minta kirim konfigurasi saat ini |
+| `iot_fcd5dea964a4/config/resp` | ESP → Web | `{"ok":true,"rules":[...]}` / `{"ok":false,"error":"..."}` |
+| `iot_fcd5dea964a4/event` | ESP → Web | `{"relay":1,"state":"on","source":"rule","ruleName":"..."}` |
 
 ---
 
@@ -116,12 +125,13 @@ IOT-01/
 ├── src/                    # firmware ESP8266 (modular)
 │   ├── main.cpp            # setup + loop
 │   ├── config.h            # konfigurasi non-rahasia
-│   ├── relay/ sensor/ status/ mqttclient/ webserver/ webpage/
-└── web/                    # aplikasi web remote -> Vercel
-    ├── index.html, app.js, style.css
-    ├── config.template.js / config.gen.js
+│   ├── relay/ sensor/ automation/ timeSync/ status/ mqttclient/ webserver/ webpage/
+└── web/                    # aplikasi web React (SPA) -> Vercel
+    ├── index.html, vite.config.js, vercel.json
+    ├── config.template.js / config.gen.js (anti-commit)
     ├── scripts/build-config.js
-    └── package.json, vercel.json
+    ├── package.json
+    └── src/                 # React (App, pages, Zustand stores, komponen)
 ```
 
 ---
@@ -166,11 +176,13 @@ powershell -ExecutionPolicy Bypass -File flash.ps1
 ### Web remote (Vercel)
 
 ```bash
-# generate config dari .env (lokal / dev)
-node web/scripts/build-config.js
+# build lokal + generate config dari .env (dev)
+cd web
+npm install
+npm run build          # menjalankan scripts/build-config.js lalu vite build
 
 # deploy production
-cd web && vercel --prod --yes
+vercel --prod --yes
 ```
 
 **Env var wajib di Vercel** (`Settings → Environment Variables`):
