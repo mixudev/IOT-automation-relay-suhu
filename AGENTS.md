@@ -38,7 +38,7 @@ Browser (Vercel, HTTPS)  ──WSS──►  Broker MQTT (HiveMQ Cloud)
 
 - **Sumber kebenaran aturan = di ESP8266** (persisted di LittleFS, file `auto.bin`).
   Web hanya editor; setiap perubahan dikirim via `config/set` lalu ESP membalas `config/resp`.
-- 4 tipe aturan: `time` (jadwal harian), `temp` (suhu), `hum` (kelembapan), `sched_temp`
+- 4 tipe aturan: `time` (jadwal harian), `temp` (suhu), `timer` (siklus nyala/mati berulang via `onSec`/`offSec`, berbasis epoch NTP dan melanjutkan fase setelah reboot), `sched_temp`
   (jadwal + ambang suhu). Setiap aturan punya prioritas, cooldown, dan daftar relay target.
 - Mode per-relay `auto`/`manual` menentukan apakah aturan boleh mengontrol relay itu;
   kontrol manual dari web **mengambil alih** mode ke `manual`. Nilai sensor memakai
