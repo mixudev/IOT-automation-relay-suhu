@@ -1,26 +1,57 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { useAppStore } from "../../store/useAppStore.js";
-import Toggle from "../ui/Toggle.jsx";
-import ConfirmDialog from "../ui/ConfirmDialog.jsx";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Pencil, RotateCcw, Download, RefreshCw, Wifi } from "lucide-react";
 import CFG from "../../config.js";
-import { useToastStore } from "../../store/useToastStore.js";
+
+function Row({ label, desc, value }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-2.5">
+      <div className="min-w-0">
+        <div className="text-sm font-medium">{label}</div>
+        <div className="truncate text-xs text-muted-foreground">{desc}</div>
+      </div>
+      <div className="shrink-0 font-mono text-xs text-muted-foreground">{value}</div>
+    </div>
+  );
+}
 
 function ModeRow({ number, auto, onToggle, disabled }) {
   const name = useAppStore((s) => s.relayNames[number - 1]);
   return (
-    <div className="setting-row">
-      <div>
-        <div className="setting-label">Relay {number} — {name || "Relay " + number}</div>
-        <div className="setting-desc">
+    <div className="flex items-center justify-between gap-3 border-b py-3 last:border-b-0">
+      <div className="min-w-0">
+        <div className="text-sm font-medium">
+          Relay {number}
+          {name && name !== "Relay " + number ? " — " + name : ""}
+        </div>
+        <div className="text-xs text-muted-foreground">
           {auto
-            ? "Mode otomatis: aturan dapat mengendalikan relay ini"
-            : "Mode manual: aturan diabaikan untuk relay ini"}
+            ? "Otomatis: aturan dapat mengendalikan relay ini"
+            : "Manual: aturan diabaikan untuk relay ini"}
         </div>
       </div>
-      <span className={"mode-tag " + (auto ? "auto" : "manual")}>
-        {auto ? "Otomatis" : "Manual"}
-      </span>
-      <Toggle checked={auto} onChange={onToggle} disabled={disabled} label="Set mode" />
+      <div className="flex shrink-0 items-center gap-2">
+        <Badge variant={auto ? "secondary" : "outline"} className="text-[10px]">
+          {auto ? "Otomatis" : "Manual"}
+        </Badge>
+        <Switch checked={auto} onCheckedChange={onToggle} disabled={disabled} aria-label={"Mode relay " + number} />
+      </div>
     </div>
   );
 }
@@ -35,12 +66,11 @@ export default function Settings() {
   const time = useAppStore((s) => s.time);
   const ntpSynced = useAppStore((s) => s.ntpSynced);
   const lastUpdate = useAppStore((s) => s.lastUpdate);
-  const toast = useToastStore((s) => s.push);
   const requestConfig = useAppStore((s) => s.requestConfig);
 
   const online = conn === "online";
   const [confirmReboot, setConfirmReboot] = useState(false);
-  const [editingName, setEditingName] = useState(null); // number | null
+  const [editingName, setEditingName] = useState(null);
   const [nameDraft, setNameDraft] = useState("");
 
   const startEditName = (n) => {
@@ -52,12 +82,12 @@ export default function Settings() {
     if (!editingName) return;
     const val = nameDraft.trim();
     if (!val) {
-      toast({ type: "error", message: "Nama tidak boleh kosong" });
+      toast.error("Nama tidak boleh kosong");
       return;
     }
     setRelayName(editingName, val);
     setEditingName(null);
-    toast({ type: "success", message: "Nama relay diperbarui" });
+    toast.success("Nama relay diperbarui");
   };
 
   const downloadConfig = () => {
@@ -89,7 +119,7 @@ export default function Settings() {
     a.click();
     URL.revokeObjectURL(url);
 
-    toast({ type: "success", message: "File konfigurasi diunduh" });
+    toast.success("File konfigurasi diunduh");
   };
 
   const lastUpdateLabel = lastUpdate
@@ -97,127 +127,147 @@ export default function Settings() {
     : "—";
 
   return (
-    <div>
-      <div className="card">
-        <div className="eyebrow" style={{ marginBottom: 4 }}>Mode Per-Relay</div>
-        <p
-          style={{
-            fontSize: 12.5,
-            color: "var(--muted)",
-            marginBottom: 4,
-          }}
-        >
-          Mode <b>Otomatis</b> memberi aturan kebebasan mengontrol relay. Mode{" "}
-          <b>Manual</b> mengunci relay hanya untuk kontrol langsung.
-        </p>
-        {Array.from({ length: 4 }, (_, i) => (
-          <ModeRow
-            key={i + 1}
-            number={i + 1}
-            auto={relayModes[i]}
-            onToggle={(auto) => setMode(i + 1, auto)}
-            disabled={!online}
-          />
-        ))}
-      </div>
+    <div className="space-y-4">
+      <Card className="gap-0 py-0">
+        <div className="px-3.5 pt-3.5">
+          <h2 className="text-sm font-semibold">Mode Per-Relay</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Mode <b className="text-foreground">Otomatis</b> memberi aturan kebebasan
+            mengontrol relay. Mode <b className="text-foreground">Manual</b> mengunci
+            relay hanya untuk kontrol langsung.
+          </p>
+        </div>
+        <div className="px-3.5 pb-1">
+          {Array.from({ length: 4 }, (_, i) => (
+            <ModeRow
+              key={i + 1}
+              number={i + 1}
+              auto={relayModes[i]}
+              onToggle={(auto) => setMode(i + 1, auto)}
+              disabled={!online}
+            />
+          ))}
+        </div>
+      </Card>
 
-      <div className="card section-gap">
-        <div className="eyebrow" style={{ marginBottom: 4 }}>Nama Relay</div>
-        <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 4 }}>
-          Label yang tampil di dashboard, log, dan aturan. Tersimpan di perangkat.
-        </p>
-        {relayNames.map((name, i) => (
-          <div className="setting-row" key={i}>
-            <div>
-              <div className="setting-label">Relay {i + 1}</div>
+      <Card className="gap-0 py-0">
+        <div className="px-3.5 pt-3.5">
+          <h2 className="text-sm font-semibold">Nama Relay</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Label yang tampil di dashboard, log, dan aturan. Tersimpan di perangkat.
+          </p>
+        </div>
+        <div className="px-3.5 pb-1">
+          {relayNames.map((name, i) => (
+            <div key={i} className="flex items-center justify-between gap-3 border-b py-3 last:border-b-0">
               {editingName === i + 1 ? (
-                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                  <input
-                    className="input"
-                    style={{ maxWidth: 240 }}
+                <div className="flex w-full items-center gap-2">
+                  <Input
+                    className="h-8"
                     value={nameDraft}
                     maxLength={28}
                     onChange={(e) => setNameDraft(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && saveName()}
                   />
-                  <button className="btn btn-sm btn-primary" onClick={saveName} disabled={!online}>
+                  <Button size="sm" onClick={saveName} disabled={!online}>
                     Simpan
-                  </button>
-                  <button className="btn btn-sm" onClick={() => setEditingName(null)}>
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingName(null)}>
                     Batal
-                  </button>
+                  </Button>
                 </div>
               ) : (
-                <div className="setting-desc">{name || "—"}</div>
+                <>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">Relay {i + 1}</div>
+                    <div className="truncate text-xs text-muted-foreground">{name || "—"}</div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => startEditName(i + 1)}
+                    disabled={!online}
+                  >
+                    <Pencil />
+                    Ubah
+                  </Button>
+                </>
               )}
             </div>
-            {editingName !== i + 1 && (
-              <button className="btn btn-sm" onClick={() => startEditName(i + 1)} disabled={!online}>
-                Ubah
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div className="card section-gap">
-        <div className="eyebrow" style={{ marginBottom: 4 }}>Perangkat</div>
-
-        <div className="setting-row">
-          <div>
-            <div className="setting-label">Device ID</div>
-            <div className="setting-desc">Identitas perangkat di MQTT</div>
-          </div>
-          <div className="setting-value">{CFG.deviceId}</div>
+          ))}
         </div>
+      </Card>
 
-        <div className="setting-row">
-          <div>
-            <div className="setting-label">Waktu internal</div>
-            <div className="setting-desc">Sumber untuk aturan jadwal</div>
-          </div>
-          <div className="setting-value" style={{ color: ntpSynced ? "var(--green)" : "var(--orange)" }}>
-            {time || "—"} · {ntpSynced ? "NTP OK" : "belum sinkron"}
-          </div>
+      <Card className="gap-0 py-0">
+        <div className="px-3.5 pt-3.5">
+          <h2 className="text-sm font-semibold">Perangkat</h2>
         </div>
-
-        <div className="setting-row">
-          <div>
-            <div className="setting-label">Update terakhir</div>
-            <div className="setting-desc">Status terakhir dari perangkat</div>
+        <div className="px-3.5 pb-1">
+          <Row label="Device ID" desc="Identitas perangkat di MQTT" value={CFG.deviceId} />
+          <div className="flex items-center justify-between gap-3 py-2.5">
+            <div className="min-w-0">
+              <div className="text-sm font-medium">Waktu internal</div>
+              <div className="text-xs text-muted-foreground">Sumber untuk aturan jadwal</div>
+            </div>
+            <span className="shrink-0 font-mono text-xs" style={{ color: ntpSynced ? "#059669" : "#ea580c" }}>
+              {time || "—"} · {ntpSynced ? "NTP OK" : "belum sinkron"}
+            </span>
           </div>
-          <div className="setting-value">{lastUpdateLabel}</div>
+          <Row label="Update terakhir" desc="Status terakhir dari perangkat" value={lastUpdateLabel} />
         </div>
-
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-          <button className="btn btn-sm" onClick={requestConfig} disabled={!online}>
+        <div className="flex flex-wrap gap-2 px-3.5 pb-3.5">
+          <Button size="sm" variant="outline" onClick={requestConfig} disabled={!online}>
+            <RefreshCw />
             Minta config ulang
-          </button>
-          <button className="btn btn-sm" onClick={downloadConfig}>
+          </Button>
+          <Button size="sm" variant="outline" onClick={downloadConfig}>
+            <Download />
             Unduh config JSON
-          </button>
-          <button
-            className="btn btn-sm btn-danger"
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
             onClick={() => setConfirmReboot(true)}
             disabled={!online}
           >
+            <RotateCcw />
             Reboot perangkat
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
 
-      <ConfirmDialog
-        open={confirmReboot}
-        title="Reboot perangkat?"
-        message="ESP8266 akan restart. Konfigurasi & aturan tersimpan aman di memori perangkat."
-        confirmLabel="Reboot"
-        onCancel={() => setConfirmReboot(false)}
-        onConfirm={() => {
-          setConfirmReboot(false);
-          reboot();
-          toast({ type: "info", message: "Perintah reboot terkirim" });
-        }}
-      />
+      <Card className="gap-0 py-0">
+        <div className="px-3.5 py-3.5">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Wifi className="size-3.5" />
+            Broker: {CFG.brokerUrl.replace("wss://", "").split("/")[0]} · {CFG.deviceId}
+          </div>
+        </div>
+      </Card>
+
+      <AlertDialog open={confirmReboot} onOpenChange={setConfirmReboot}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reboot perangkat?</AlertDialogTitle>
+            <AlertDialogDescription>
+              ESP8266 akan restart. Konfigurasi &amp; aturan tersimpan aman di memori
+              perangkat.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                reboot();
+                toast.info("Perintah reboot terkirim");
+              }}
+            >
+              Reboot
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

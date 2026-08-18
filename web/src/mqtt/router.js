@@ -1,6 +1,6 @@
+import { toast } from "sonner";
 import { useAppStore } from "../store/useAppStore.js";
 import { useRulesStore } from "../store/useRulesStore.js";
-import { useToastStore } from "../store/useToastStore.js";
 import { onMqttMessage, onConnChange } from "./client.js";
 import CFG from "../config.js";
 
@@ -26,7 +26,6 @@ export function startRouting() {
 
     const app = useAppStore.getState();
     const rules = useRulesStore.getState();
-    const toast = useToastStore.getState();
 
     // ---- STATIC STATUS ----
     if (topic === CFG.topicStatus) {
@@ -60,22 +59,18 @@ export function startRouting() {
 
         if (rules.pendingAction === "save") {
 
-          toast.push({
-            type: "success",
-            message: "Aturan tersimpan di perangkat",
-          });
+          toast.success("Aturan tersimpan di perangkat");
         }
 
         rules.setPendingAction(null);
 
       } else {
 
-        toast.push({
-          type: "error",
-          message: data.error
+        toast.error(
+          data.error
             ? "Gagal simpan: " + data.error
-            : "Gagal sinkronkan konfigurasi",
-        });
+            : "Gagal sinkronkan konfigurasi"
+        );
 
         rules.setPendingAction(null);
       }

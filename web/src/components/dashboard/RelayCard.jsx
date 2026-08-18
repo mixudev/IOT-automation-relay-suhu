@@ -1,25 +1,9 @@
 import { useAppStore } from "../../store/useAppStore.js";
-
-function PowerIcon({ on }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="17"
-      height="17"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-    >
-      <path d="M12 2v9" />
-      {on ? (
-        <path d="M18.4 6.6a8 8 0 1 1-12.8 0" />
-      ) : (
-        <path d="M18.4 6.6a8 8 0 1 1-12.8 0" fillOpacity="0.12" />
-      )}
-    </svg>
-  );
-}
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Power, Zap, SlidersHorizontal } from "lucide-react";
 
 export default function RelayCard({ number }) {
   const name = useAppStore((s) => s.relayNames[number - 1]);
@@ -31,51 +15,64 @@ export default function RelayCard({ number }) {
 
   const online = conn === "online";
 
-  const toggle = () => {
-    if (!online) return;
-    manualRelay(number, !on);
-  };
-
-  const toggleMode = () => {
-    if (!online) return;
-    setMode(number, !auto);
-  };
-
   return (
-    <div className={"card relay-card"}>
-      <div className="relay-head">
-        <span className="relay-num">R{number}</span>
-        <span className={"relay-status" + (on ? " on" : "")}>
-          {on ? "ON" : "OFF"}
-        </span>
-      </div>
+    <Card className="gap-0 py-0">
+      <CardContent className="flex flex-col gap-3 px-3.5 py-3.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div
+              className={
+                "grid size-9 shrink-0 place-items-center rounded-lg " +
+                (on
+                  ? "bg-emerald-100 text-emerald-600"
+                  : "bg-muted text-muted-foreground")
+              }
+            >
+              <Power className="size-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold leading-tight">
+                {name || "Relay " + number}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Relay {number}
+              </p>
+            </div>
+          </div>
+          <Badge
+            variant={on ? "default" : "secondary"}
+            className={on ? "bg-emerald-500" : ""}
+          >
+            {on ? "ON" : "OFF"}
+          </Badge>
+        </div>
 
-      <div className="relay-name">{name || "Relay " + number}</div>
-      <div className="relay-desc">
-        Relay {number} · {on ? "aktif" : "mati"}
-      </div>
+        <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-3 py-2">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <SlidersHorizontal className="size-3.5" />
+            {auto ? "Mode otomatis" : "Mode manual"}
+          </div>
+          <Button
+            size="sm"
+            variant={auto ? "default" : "outline"}
+            onClick={() => setMode(number, !auto)}
+            disabled={!online}
+          >
+            <Zap className={auto ? "" : "text-muted-foreground"} />
+            {auto ? "Otomatis" : "Manual"}
+          </Button>
+        </div>
 
-      <div className="relay-row">
-        <span className="row-label">Mode</span>
-        <span className={"mode-tag " + (auto ? "auto" : "manual")} onClick={toggleMode}>
-          {auto ? "⚡ Otomatis" : "• Manual"}
-        </span>
-      </div>
-
-      <div className="relay-row">
-        <span className="row-label">
-          {on ? "Matikan" : "Nyalakan"}
-        </span>
-        <button
-          className={"btn btn-sm " + (on ? "btn-off" : "btn-on")}
-          onClick={toggle}
-          disabled={!online}
-          aria-label={"Relay " + number + (on ? " mati" : " nyala")}
-        >
-          <PowerIcon on={on} />
-          {on ? "Matikan" : "Nyalakan"}
-        </button>
-      </div>
-    </div>
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-medium">{on ? "Menyala" : "Mati"}</span>
+          <Switch
+            checked={on}
+            onCheckedChange={(v) => manualRelay(number, v)}
+            disabled={!online}
+            aria-label={"Relay " + number + (on ? " mati" : " nyala")}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 }

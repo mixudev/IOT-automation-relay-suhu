@@ -1,29 +1,18 @@
 import { useState } from "react";
+import { Toaster } from "@/components/ui/sonner";
+import { Home, Zap, History, Settings, Power, TriangleAlert } from "lucide-react";
 import { useAppStore } from "./store/useAppStore.js";
 import Dashboard from "./components/dashboard/Dashboard.jsx";
 import Automation from "./components/automation/Automation.jsx";
-import History from "./components/history/History.jsx";
-import Settings from "./components/settings/Settings.jsx";
-import Toaster from "./components/ui/Toaster.jsx";
+import HistoryPage from "./components/history/History.jsx";
+import SettingsPage from "./components/settings/Settings.jsx";
 
 const NAV = [
-  { id: "dashboard", label: "Dashboard", icon: "home" },
-  { id: "automation", label: "Automation", icon: "bolt" },
-  { id: "history", label: "Riwayat", icon: "chart" },
-  { id: "settings", label: "Pengaturan", icon: "gear" },
+  { id: "dashboard", label: "Dashboard", icon: Home },
+  { id: "automation", label: "Automation", icon: Zap },
+  { id: "history", label: "Riwayat", icon: History },
+  { id: "settings", label: "Pengaturan", icon: Settings },
 ];
-
-const ICONS = {
-  home: <path d="M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5" />,
-  bolt: <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" />,
-  chart: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
-  gear: (
-    <>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.06a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55h.06a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87.9.9 0 0 0 .77.5H21a2 2 0 1 1 0 4h-.09a.9.9 0 0 0-.51.05z" />
-    </>
-  ),
-};
 
 export default function App() {
   const [page, setPage] = useState("dashboard");
@@ -32,18 +21,6 @@ export default function App() {
   const time = useAppStore((s) => s.time);
   const ntpSynced = useAppStore((s) => s.ntpSynced);
   const ntpWarning = useAppStore((s) => s.ntpWarning);
-
-  const toggleTheme = () => {
-    const root = document.documentElement;
-    const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
-    root.setAttribute("data-theme", next);
-    localStorage.setItem("theme", next);
-
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) {
-      meta.setAttribute("content", next === "dark" ? "#14161C" : "#F2F3F5");
-    }
-  };
 
   const connLabel =
     conn === "online" ? "Online" : conn === "offline" ? "Offline" : "…";
@@ -54,89 +31,108 @@ export default function App() {
         ? "Terputus"
         : "Menghubungkan…";
 
+  const connClass =
+    conn === "online"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : conn === "offline"
+        ? "border-red-200 bg-red-50 text-red-700"
+        : "border-border bg-muted text-muted-foreground";
+
+  const dotClass =
+    conn === "online"
+      ? "bg-emerald-500"
+      : conn === "offline"
+        ? "bg-red-500"
+        : "bg-amber-400";
+
   const renderPage = () => {
     switch (page) {
       case "automation":
         return <Automation />;
       case "history":
-        return <History />;
+        return <HistoryPage />;
       case "settings":
-        return <Settings />;
+        return <SettingsPage />;
       default:
         return <Dashboard />;
     }
   };
 
   return (
-    <div className="app">
-      <header className="appbar">
-        <div className="brand">
-          <div className="logo">
-            <svg viewBox="0 0 24 24" width="19" height="19" fill="none">
-              <circle cx="7" cy="17" r="2.2" fill="#fff" />
-              <circle cx="17" cy="7" r="2.2" fill="#fff" fillOpacity="0.9" />
-              <path d="M8.6 15.4 15.4 8.6" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
+    <div className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col bg-background">
+      <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b bg-background/95 px-4 py-3 backdrop-blur">
+        <div className="flex items-center gap-2.5">
+          <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
+            <Power className="size-4" />
           </div>
           <div>
-            <div className="brand-name">Relay Control</div>
-            <div className="brand-sub">ESP8266 · v2.0.0</div>
+            <p className="text-sm font-semibold leading-tight">Relay Control</p>
+            <p className="text-[11px] leading-tight text-muted-foreground">
+              ESP8266 · v2.0.0
+            </p>
           </div>
         </div>
 
-        <div className="appbar-right">
+        <div className="flex items-center gap-2">
           {conn === "online" && (
-            <span className="time-badge">{time || "--:--"}</span>
+            <span className="rounded-full border bg-muted px-2 py-1 font-mono text-[11px] text-muted-foreground">
+              {time || "--:--"}
+            </span>
           )}
-          <div className={"conn-pill " + conn} title={connTitle}>
-            <span className="conn-dot"></span>
+          <span
+            title={connTitle}
+            className={
+              "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium " +
+              connClass
+            }
+          >
+            <span className={"size-1.5 rounded-full " + dotClass} />
             {connLabel}
-          </div>
-          <button className="theme-btn" onClick={toggleTheme} aria-label="Ganti tema">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <circle cx="12" cy="12" r="4" />
-              <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-            </svg>
-          </button>
+          </span>
         </div>
       </header>
 
-      <main className="main">
+      <main className="flex-1 px-3.5 pb-24 pt-4">
         {ntpWarning && !ntpSynced && (
-          <div className="warn-banner">
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
-            </svg>
-            Waktu belum sinkron (NTP). Aturan berbasis jadwal akan aktif setelah waktu tersinkron.
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <TriangleAlert className="size-4 shrink-0" />
+            Waktu belum sinkron (NTP). Aturan jadwal aktif setelah waktu tersinkron.
           </div>
         )}
 
-        <div className="page-head">
-          <div className="page-title">
+        <div className="mb-4">
+          <h1 className="text-xl font-semibold tracking-tight">
             {NAV.find((n) => n.id === page)?.label}
-          </div>
-          <div className="page-desc">Kontrol relay & automation</div>
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            Kontrol relay &amp; automation
+          </p>
         </div>
 
         {renderPage()}
       </main>
 
-      <nav className="bottom-nav">
-        {NAV.map((item) => (
-          <button
-            key={item.id}
-            className={"nav-item" + (page === item.id ? " active" : "")}
-            onClick={() => setPage(item.id)}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-              {ICONS[item.icon]}
-            </svg>
-            {item.label}
-          </button>
-        ))}
+      <nav className="fixed inset-x-0 bottom-0 z-50 mx-auto flex w-full max-w-[560px] border-t bg-background pb-[env(safe-area-inset-bottom)]">
+        {NAV.map((item) => {
+          const Icon = item.icon;
+          const active = page === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setPage(item.id)}
+              className={
+                "flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10.5px] font-medium transition-colors " +
+                (active ? "text-primary" : "text-muted-foreground")
+              }
+            >
+              <Icon className={"size-5 " + (active ? "" : "")} />
+              {item.label}
+            </button>
+          );
+        })}
       </nav>
 
-      <Toaster />
+      <Toaster position="top-center" richColors closeButton />
     </div>
   );
 }

@@ -13,7 +13,7 @@ export default function RelayPicker({ relays, onChange }) {
   };
 
   return (
-    <div className="relay-picker">
+    <div className="grid grid-cols-2 gap-1.5">
       {Array.from({ length: RELAY_COUNT }, (_, i) => {
         const n = i + 1;
         const selected = relays.includes(n);
@@ -21,11 +21,16 @@ export default function RelayPicker({ relays, onChange }) {
           <button
             type="button"
             key={n}
-            className={"relay-chip" + (selected ? " selected" : "")}
             onClick={() => toggle(n)}
+            className={
+              "flex items-center gap-2 rounded-md border px-3 py-2 text-left transition-colors " +
+              (selected
+                ? "border-transparent bg-primary text-primary-foreground"
+                : "border-input bg-background hover:bg-accent")
+            }
           >
-            <div className="rc-num">R{n}</div>
-            <div className="rc-name">{names[n - 1] || "Relay " + n}</div>
+            <span className="font-mono text-xs font-bold">R{n}</span>
+            <span className="truncate text-xs">{names[n - 1] || "Relay " + n}</span>
           </button>
         );
       })}

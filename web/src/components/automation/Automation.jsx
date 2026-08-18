@@ -1,9 +1,12 @@
 import { useMemo, useState } from "react";
 import { useAppStore } from "../../store/useAppStore.js";
 import { useRulesStore } from "../../store/useRulesStore.js";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Plus, RefreshCw, Zap, TriangleAlert } from "lucide-react";
 import RuleCard from "./RuleCard.jsx";
 import RuleEditor from "./RuleEditor.jsx";
-import EmptyState from "../ui/EmptyState.jsx";
 import { RULE_TYPES } from "../../config.js";
 
 export const emptyRule = () => ({
@@ -45,8 +48,7 @@ export default function Automation() {
   const total = rules.length;
   const activeCount = rules.filter((r) => r.enabled).length;
 
-  const openCreate = () =>
-    setEditing({ idx: null, rule: { ...emptyRule(), id: 0 } });
+  const openCreate = () => setEditing({ idx: null, rule: { ...emptyRule(), id: 0 } });
 
   const openEdit = (idx) => {
     const rule = useRulesStore.getState().rules[idx];
@@ -65,58 +67,69 @@ export default function Automation() {
   const busy = syncState === "saving";
 
   return (
-    <div>
-      <div className="toolbar">
-        <div className="stat-em">
-          <b>{activeCount}</b> dari <b>{total}</b> aturan aktif
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn" onClick={fetch} disabled={!online || syncState === "fetching"}>
-            {syncState === "fetching" ? "Menyinkron…" : "Sinkron"}
-          </button>
-          <button className="btn btn-primary" onClick={openCreate} disabled={!online}>
-            + Aturan Baru
-          </button>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          <span className="font-semibold text-foreground">{activeCount}</span> dari{" "}
+          <span className="font-semibold text-foreground">{total}</span> aturan aktif
+        </p>
+        <div className="flex gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetch}
+            disabled={!online || syncState === "fetching"}
+          >
+            <RefreshCw className={syncState === "fetching" ? "animate-spin" : ""} />
+            Sinkron
+          </Button>
+          <Button size="sm" onClick={openCreate} disabled={!online}>
+            <Plus />
+            Baru
+          </Button>
         </div>
       </div>
 
       {syncState === "error" && (
-        <div className="warn-banner" style={{ color: "var(--red)", background: "var(--red-soft)" }}>
-          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
-          </svg>
-          Terjadi masalah sinkron. Coba <button className="btn btn-sm" onClick={fetch}>muat ulang</button>.
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          <TriangleAlert className="size-4 shrink-0" />
+          Gagal sinkron dengan perangkat.
+          <Button variant="outline" size="xs" onClick={fetch} className="ml-auto">
+            Muat ulang
+          </Button>
         </div>
       )}
 
       {rules.length === 0 && !busy ? (
-        <div className="card">
-          <EmptyState
-            icon="⚡"
-            title="Belum ada aturan automation"
-            text="Buat aturan bertenaga jadwal atau sensor — semua dieksekusi langsung di atas ESP8266."
-            action={
-              <button className="btn btn-primary" onClick={openCreate} disabled={!online}>
-                + Buat Aturan Pertama
-              </button>
-            }
-          />
-        </div>
+        <Card className="items-center justify-center py-12 text-center">
+          <Zap className="size-8 text-muted-foreground/40" />
+          <p className="text-sm font-medium">Belum ada aturan automation</p>
+          <p className="max-w-[260px] text-xs text-muted-foreground">
+            Buat aturan berbasis jadwal atau sensor — dieksekusi langsung di ESP8266.
+          </p>
+          <Button onClick={openCreate} disabled={!online}>
+            <Plus />
+            Buat Aturan Pertama
+          </Button>
+        </Card>
       ) : (
         Object.keys(RULE_TYPES).map((type) => {
           const list = byType[type];
           if (list.length === 0) return null;
 
           return (
-            <div className="section-gap" key={type}>
-              <div className="stat-em" style={{ marginBottom: 10 }}>
-                <b>{RULE_TYPES[type].label}</b> ({list.length})
+            <div key={type} className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">{RULE_TYPES[type].label}</Badge>
+                <span className="text-[11px] text-muted-foreground">
+                  {list.length} aturan
+                </span>
               </div>
-              <div className="rule-list">
-                {list.map((rule, i) => {
+              <div className="space-y-2">
+                {list.map((rule) => {
                   const idx = rules.indexOf(rule);
                   return (
-                    <div className="card" key={rule.id}>
+                    <Card key={rule.id} className="gap-0 py-0">
                       <RuleCard
                         rule={rule}
                         onEdit={() => openEdit(idx)}
@@ -125,7 +138,7 @@ export default function Automation() {
                         onDup={() => dupRule(idx)}
                         disabled={!online}
                       />
-                    </div>
+                    </Card>
                   );
                 })}
               </div>

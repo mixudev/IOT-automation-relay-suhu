@@ -1,7 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
-import "./styles.css";
+import "./globals.css";
 import { startRouting } from "./mqtt/router.js";
 import { mqttConnect } from "./mqtt/client.js";
 import { useAppStore } from "./store/useAppStore.js";

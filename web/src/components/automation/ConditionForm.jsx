@@ -1,4 +1,7 @@
 import DayPicker from "./DayPicker.jsx";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input";
 import { minuteToHM, hmToMinute } from "../../utils/format.js";
 
 function TimeRange({ value, onChange }) {
@@ -6,72 +9,83 @@ function TimeRange({ value, onChange }) {
   const end = minuteToHM(value.endMin);
 
   return (
-    <div>
-      <div style={{ display: "flex", gap: 12 }}>
-        <div style={{ flex: 1 }}>
-          <label>Mulai</label>
-          <input
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Mulai</Label>
+          <Input
             type="time"
-            className="input"
             value={start}
             onChange={(e) => onChange({ startMin: hmToMinute(e.target.value) })}
           />
         </div>
-        <div style={{ flex: 1 }}>
-          <label>Sampai</label>
-          <input
+        <div className="space-y-1.5">
+          <Label>Sampai</Label>
+          <Input
             type="time"
-            className="input"
             value={end}
             onChange={(e) => onChange({ endMin: hmToMinute(e.target.value) })}
           />
         </div>
       </div>
-      <div className="hint">
+      <p className="text-xs text-muted-foreground">
         Aktif setiap hari terpilih di rentang jam ini. Melewati tengah malam juga
         didukung.
-      </div>
+      </p>
     </div>
   );
 }
 
-function SensorThresholds({ type, value, onChange, suffix, min, max, step }) {
+function ThresholdRow({ label, suffix, value, min, max, step, onChange }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label>{label}</Label>
+        <span className="font-mono text-sm font-semibold">
+          {(value / 10).toFixed(1)}
+          <span className="ml-0.5 text-[11px] font-normal text-muted-foreground">
+            {suffix}
+          </span>
+        </span>
+      </div>
+      <Slider
+        min={min * 10}
+        max={max * 10}
+        step={Math.round(step * 10)}
+        value={[value]}
+        onValueChange={(v) => onChange(v[0])}
+      />
+    </div>
+  );
+}
+
+function SensorThresholds({ value, onChange, suffix, min, max, step }) {
   const onVal = value.onValue || 0;
   const offVal = value.offValue || 0;
 
   return (
-    <div>
-      <label>
-        Nyalakan saat nilai ≥ <b>{onVal / 10}{suffix}</b>
-      </label>
-      <input
-        type="range"
-        className="slider"
-        min={min * 10}
-        max={max * 10}
-        step={Math.round(step * 10)}
+    <div className="space-y-5">
+      <ThresholdRow
+        label="Nyalakan saat nilai ≥"
+        suffix={suffix}
         value={onVal}
-        onChange={(e) =>
-          onChange({ onValue: parseInt(e.target.value, 10) || 0 })
-        }
+        min={min}
+        max={max}
+        step={step}
+        onChange={(v) => onChange({ onValue: v })}
       />
-      <label style={{ marginTop: 14 }}>
-        Matikan saat nilai ≤ <b>{offVal / 10}{suffix}</b>
-      </label>
-      <input
-        type="range"
-        className="slider"
-        min={min * 10}
-        max={max * 10}
-        step={Math.round(step * 10)}
+      <ThresholdRow
+        label="Matikan saat nilai ≤"
+        suffix={suffix}
         value={offVal > 0 ? offVal : onVal}
-        onChange={(e) =>
-          onChange({ offValue: parseInt(e.target.value, 10) || 0 })
-        }
+        min={min}
+        max={max}
+        step={step}
+        onChange={(v) => onChange({ offValue: v })}
       />
-      <div className="hint">
+      <p className="text-xs text-muted-foreground">
         Hysteresis: relay tidak "goyang" di sekitar ambang batas.
-      </div>
+      </p>
     </div>
   );
 }
@@ -82,15 +96,15 @@ export default function ConditionForm({ rule, onChange }) {
   const setDays = (days) => onChange({ days });
 
   return (
-    <div>
-      {type === "time" && (
+    <div className="space-y-4">
+      {(type === "time" || type === "sched_temp") && (
         <>
-          <div className="field">
-            <label>Hari aktif</label>
+          <div className="space-y-1.5">
+            <Label>Hari aktif</Label>
             <DayPicker days={rule.days} onChange={setDays} />
           </div>
-          <div className="field">
-            <label>Jadwal</label>
+          <div className="space-y-1.5">
+            <Label>Jadwal</Label>
             <TimeRange
               value={{ startMin: rule.startMin, endMin: rule.endMin }}
               onChange={onChange}
@@ -99,10 +113,10 @@ export default function ConditionForm({ rule, onChange }) {
         </>
       )}
 
-      {type === "temp" && (
-        <div className="field">
+      {(type === "temp" || type === "sched_temp") && (
+        <div className="space-y-1.5">
+          <Label>Ambang suhu</Label>
           <SensorThresholds
-            type="temp"
             value={{ onValue: rule.onValue, offValue: rule.offValue }}
             onChange={onChange}
             suffix="°C"
@@ -110,17 +124,19 @@ export default function ConditionForm({ rule, onChange }) {
             max={45}
             step={0.5}
           />
-          <div className="hint">
-            Bila sensor bermasalah, aturan berbasis suhu otomatis dilewati sampai
-            data valid kembali.
-          </div>
+          {type === "temp" && (
+            <p className="text-xs text-muted-foreground">
+              Bila sensor bermasalah, aturan berbasis suhu otomatis dilewati
+              sampai data valid kembali.
+            </p>
+          )}
         </div>
       )}
 
       {type === "hum" && (
-        <div className="field">
+        <div className="space-y-1.5">
+          <Label>Ambang kelembapan</Label>
           <SensorThresholds
-            type="hum"
             value={{ onValue: rule.onValue, offValue: rule.offValue }}
             onChange={onChange}
             suffix="%"
@@ -129,33 +145,6 @@ export default function ConditionForm({ rule, onChange }) {
             step={5}
           />
         </div>
-      )}
-
-      {type === "sched_temp" && (
-        <>
-          <div className="field">
-            <label>Hari aktif</label>
-            <DayPicker days={rule.days} onChange={setDays} />
-          </div>
-          <div className="field">
-            <label>Jadwal</label>
-            <TimeRange
-              value={{ startMin: rule.startMin, endMin: rule.endMin }}
-              onChange={onChange}
-            />
-          </div>
-          <div className="field">
-            <SensorThresholds
-              type="temp"
-              value={{ onValue: rule.onValue, offValue: rule.offValue }}
-              onChange={onChange}
-              suffix="°C"
-              min={10}
-              max={45}
-              step={0.5}
-            />
-          </div>
-        </>
       )}
     </div>
   );

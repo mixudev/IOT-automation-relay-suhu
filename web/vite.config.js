@@ -1,8 +1,18 @@
+import path from "path";
+import { fileURLToPath } from "url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
   build: {
     target: "es2018",
     outDir: "dist",
@@ -13,6 +23,7 @@ export default defineConfig({
           react: ["react", "react-dom"],
           mqtt: ["mqtt"],
           charts: ["recharts"],
+          ui: ["lucide-react"],
         },
       },
     },
