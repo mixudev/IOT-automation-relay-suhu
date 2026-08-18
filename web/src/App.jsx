@@ -60,9 +60,14 @@ export default function App() {
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col bg-background">
-      <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b bg-background/95 px-4 py-3 backdrop-blur">
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 z-0 h-48 bg-[radial-gradient(70%_100%_at_50%_0%,oklch(0.92_0.045_277),transparent_72%)]"
+      />
+      <div className="h-[3px] bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-400" />
+      <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b bg-background/85 px-4 py-3 backdrop-blur">
         <div className="flex items-center gap-2.5">
-          <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
+          <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm">
             <Power className="size-4" />
           </div>
           <div>
@@ -92,7 +97,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="flex-1 px-3.5 pb-24 pt-4">
+      <main className="relative flex-1 px-3.5 pb-24 pt-4">
         {ntpWarning && !ntpSynced && (
           <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
             <TriangleAlert className="size-4 shrink-0" />
@@ -112,7 +117,7 @@ export default function App() {
         {renderPage()}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-50 mx-auto flex w-full max-w-[560px] border-t bg-background pb-[env(safe-area-inset-bottom)]">
+      <nav className="fixed inset-x-0 bottom-0 z-50 mx-auto flex w-full max-w-[560px] border-t bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         {NAV.map((item) => {
           const Icon = item.icon;
           const active = page === item.id;
@@ -121,11 +126,18 @@ export default function App() {
               key={item.id}
               onClick={() => setPage(item.id)}
               className={
-                "flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10.5px] font-medium transition-colors " +
+                "flex flex-1 flex-col items-center gap-0.5 py-2 text-[10.5px] font-medium transition-colors " +
                 (active ? "text-primary" : "text-muted-foreground")
               }
             >
-              <Icon className={"size-5 " + (active ? "" : "")} />
+              <span
+                className={
+                  "grid size-7 place-items-center rounded-lg transition-colors " +
+                  (active ? "bg-primary/15" : "")
+                }
+              >
+                <Icon className="size-5" />
+              </span>
               {item.label}
             </button>
           );

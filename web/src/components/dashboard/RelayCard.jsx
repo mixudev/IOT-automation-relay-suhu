@@ -16,7 +16,7 @@ export default function RelayCard({ number }) {
   const online = conn === "online";
 
   return (
-    <Card className="gap-0 py-0">
+    <Card className={"gap-0 py-0" + (on ? " border-emerald-200" : "")}>
       <CardContent className="flex flex-col gap-3 px-3.5 py-3.5">
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2.5">
@@ -24,7 +24,7 @@ export default function RelayCard({ number }) {
               className={
                 "grid size-9 shrink-0 place-items-center rounded-lg " +
                 (on
-                  ? "bg-emerald-100 text-emerald-600"
+                  ? "bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
                   : "bg-muted text-muted-foreground")
               }
             >
@@ -41,7 +41,7 @@ export default function RelayCard({ number }) {
           </div>
           <Badge
             variant={on ? "default" : "secondary"}
-            className={on ? "bg-emerald-500" : ""}
+            className={on ? "bg-gradient-to-r from-emerald-500 to-teal-600" : ""}
           >
             {on ? "ON" : "OFF"}
           </Badge>

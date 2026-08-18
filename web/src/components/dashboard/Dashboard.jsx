@@ -6,7 +6,7 @@ import EventFeed from "./EventFeed.jsx";
 import { fmtTemp, fmtHum } from "../../utils/format.js";
 import { RELAY_COUNT } from "../../config.js";
 
-function StatCard({ label, value, unit, icon: Icon, valueClass }) {
+function StatCard({ label, value, unit, icon: Icon, valueClass, chipClass }) {
   return (
     <Card className="gap-0 py-3.5">
       <CardContent className="flex flex-col gap-1 px-3.5">
@@ -14,7 +14,9 @@ function StatCard({ label, value, unit, icon: Icon, valueClass }) {
           <span className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
             {label}
           </span>
-          <Icon className="size-3.5 text-muted-foreground/50" />
+          <span className={"grid size-6 shrink-0 place-items-center rounded-md " + chipClass}>
+            <Icon className="size-3.5" />
+          </span>
         </div>
         <div className="flex items-baseline gap-1">
           <span className={"font-mono text-2xl font-semibold tracking-tight " + valueClass}>
@@ -55,6 +57,7 @@ export default function Dashboard() {
           unit="°C"
           icon={Thermometer}
           valueClass="text-orange-600"
+          chipClass="bg-orange-100 text-orange-600"
         />
         <StatCard
           label="Kelembapan"
@@ -62,6 +65,7 @@ export default function Dashboard() {
           unit="%RH"
           icon={Droplets}
           valueClass="text-teal-600"
+          chipClass="bg-teal-100 text-teal-600"
         />
         <StatCard
           label="Relay Nyala"
@@ -69,6 +73,7 @@ export default function Dashboard() {
           unit={"dari " + RELAY_COUNT}
           icon={Power}
           valueClass="text-emerald-600"
+          chipClass="bg-emerald-100 text-emerald-600"
         />
         <StatCard
           label="Aturan Aktif"
@@ -76,6 +81,7 @@ export default function Dashboard() {
           unit="rules"
           icon={Activity}
           valueClass="text-primary"
+          chipClass="bg-indigo-100 text-indigo-600"
         />
       </div>
 
