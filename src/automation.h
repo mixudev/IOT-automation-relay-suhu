@@ -11,8 +11,9 @@
 enum RuleType : uint8_t {
   RULE_TIME       = 0, // jadwal: rentang jam + hari
   RULE_TEMP       = 1, // suhu: hysteresis
-  RULE_HUM        = 2, // kelembapan: hysteresis
-  RULE_SCHED_TEMP = 3  // kombinasi: jadwal DAN suhu
+  RULE_HUM        = 2, // kelembapan: hysteresis (tidak lagi dipakai web)
+  RULE_SCHED_TEMP = 3, // kombinasi: jadwal DAN suhu
+  RULE_TIMER      = 4  // timer: nyala onSec, mati offSec, berulang
 };
 
 // =====================================================
@@ -35,6 +36,9 @@ struct AutomationRule {
   uint16_t startMin;
   uint16_t endMin;
   uint16_t cooldownSec;
+  uint16_t onSec;       // timer: durasi ON (detik)
+  uint16_t offSec;      // timer: durasi OFF (detik)
+  uint32_t startEpoch;  // timer: referensi awal siklus (epoch detik)
   uint8_t  id;
   bool     enabled;
   uint8_t  relays;

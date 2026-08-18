@@ -16,7 +16,7 @@ import ConditionForm from "./ConditionForm.jsx";
 import { RULE_TYPES } from "../../config.js";
 import { ruleConditionLabel, relaysLabel } from "../../utils/format.js";
 
-const TYPE_ORDER = ["time", "temp", "hum", "sched_temp"];
+const TYPE_ORDER = ["time", "temp", "timer", "sched_temp"];
 
 const PRIORITY = [
   { v: 0, l: "Rendah" },

@@ -4,8 +4,30 @@ import { publish } from "../mqtt/client.js";
 
 const HISTORY_MAX = 120;
 
-function pushHistory(arr, value) {
-  const next = [...arr, value];
+// Catat pembacaan sensor ke bucket per jam (nilai rata-rata).
+// Tidak menumpuk: hanya 1 titik per jam, maksimum HISTORY_MAX
+// titik (kurang lebih 5 hari). Titik terakhir di jam yang sama
+// dihitung rata-ratanya.
+function recordPoint(history, temp, hum, ts) {
+  if (typeof temp !== "number" || typeof hum !== "number") {
+    return history;
+  }
+
+  const hourStart = ts - (ts % 3600000);
+  const last = history[history.length - 1];
+
+  if (last && last.ts === hourStart) {
+    const n = last.n + 1;
+    const point = {
+      ts: hourStart,
+      n,
+      temp: (last.temp * last.n + temp) / n,
+      hum: (last.hum * last.n + hum) / n,
+    };
+    return [...history.slice(0, -1), point];
+  }
+
+  const next = [...history, { ts: hourStart, n: 1, temp, hum }];
   if (next.length > HISTORY_MAX) {
     next.shift();
   }
@@ -30,8 +52,7 @@ export const useAppStore = create((set, get) => ({
   rulesActive: 0,
 
   events: [],       // feed aktivitas (terbaru di depan)
-  tempHistory: [],
-  humHistory: [],
+  history: [],      // titik sensor rata-rata per jam {ts, temp, hum, n}
   lastUpdate: null,
 
   // ---- status internal ----
@@ -84,12 +105,17 @@ export const useAppStore = create((set, get) => ({
       deviceOnline: true,
     };
 
-    // Taruh sensor ke history juga (jika ada nilai baru).
-    if (typeof data.temperature === "number") {
-      next.tempHistory = pushHistory(s.tempHistory, data.temperature);
-    }
-    if (typeof data.humidity === "number") {
-      next.humHistory = pushHistory(s.humHistory, data.humidity);
+    // Taruh sensor ke history (bucket per jam) bila nilai valid.
+    if (
+      typeof data.temperature === "number" &&
+      typeof data.humidity === "number"
+    ) {
+      next.history = recordPoint(
+        s.history,
+        data.temperature,
+        data.humidity,
+        Date.now()
+      );
     }
 
     set(next);
@@ -100,8 +126,7 @@ export const useAppStore = create((set, get) => ({
     set({
       temperature,
       humidity,
-      tempHistory: pushHistory(s.tempHistory, temperature),
-      humHistory: pushHistory(s.humHistory, humidity),
+      history: recordPoint(s.history, temperature, humidity, Date.now()),
       lastUpdate: Date.now(),
       lastSeen: Date.now(),
       deviceOnline: true,
@@ -116,7 +141,7 @@ export const useAppStore = create((set, get) => ({
     })),
 
   clearHistory: () =>
-    set({ tempHistory: [], humHistory: [] }),
+    set({ history: [] }),
 
   clearEvents: () => set({ events: [] }),
 

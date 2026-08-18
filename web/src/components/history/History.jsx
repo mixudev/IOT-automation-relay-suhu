@@ -15,6 +15,29 @@ import { Card } from "@/components/ui/card";
 import { Activity, Thermometer, Droplets } from "lucide-react";
 import EventFeed from "../dashboard/EventFeed.jsx";
 
+const METRICS = {
+  temp: {
+    label: "Suhu",
+    unit: "°",
+    suffix: " °C",
+    line: "#ea580c",
+    icon: Thermometer,
+    accentMin: "#0d9488",
+    accentAvg: "hsl(var(--primary))",
+    accentMax: "#ea580c",
+  },
+  hum: {
+    label: "Kelembapan",
+    unit: "%",
+    suffix: " %",
+    line: "#0d9488",
+    icon: Droplets,
+    accentMin: "#0d9488",
+    accentAvg: "hsl(var(--primary))",
+    accentMax: "#ea580c",
+  },
+};
+
 function StatCard({ label, value, icon: Icon, accent }) {
   return (
     <Card className="gap-0 py-3">
@@ -43,51 +66,38 @@ const TOOLTIP_STYLE = {
 };
 
 export default function History() {
-  const tempHistory = useAppStore((s) => s.tempHistory);
-  const humHistory = useAppStore((s) => s.humHistory);
+  const history = useAppStore((s) => s.history);
   const [metric, setMetric] = useState("temp");
+  const m = METRICS[metric];
 
-  const data = useMemo(() => {
-    const n = Math.max(tempHistory.length, humHistory.length);
-    const t0 = tempHistory.length ? tempHistory.length - n : 0;
-    const h0 = humHistory.length ? humHistory.length - n : 0;
-    const arr = [];
-    for (let i = 0; i < Math.min(n, 120); i++) {
-      const idxT = t0 + i;
-      const idxH = h0 + i;
-      arr.push({
-        t: i + 1,
-        temp:
-          tempHistory[idxT] !== undefined ? +tempHistory[idxT].toFixed(1) : null,
-        hum: humHistory[idxH] !== undefined ? Math.round(humHistory[idxH]) : null,
-      });
-    }
-    return arr;
-  }, [tempHistory, humHistory]);
+  const data = useMemo(
+    () =>
+      history.map((p) => ({
+        label: new Date(p.ts).toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        temp: +p.temp.toFixed(1),
+        hum: Math.round(p.hum),
+      })),
+    [history]
+  );
 
   const stats = useMemo(() => {
-    if (tempHistory.length === 0) return null;
-    const min = Math.min(...tempHistory);
-    const max = Math.max(...tempHistory);
-    const avg = tempHistory.reduce((s, v) => s + v, 0) / tempHistory.length;
+    const series =
+      metric === "temp"
+        ? data.map((d) => d.temp).filter((v) => v !== null)
+        : data.map((d) => d.hum).filter((v) => v !== null);
+    if (series.length === 0) return null;
+    const min = Math.min(...series);
+    const max = Math.max(...series);
+    const avg = series.reduce((s, v) => s + v, 0) / series.length;
     return [
-      {
-        label: "Terendah",
-        value: min.toFixed(1) + "°C",
-        accent: "#0d9488",
-      },
-      {
-        label: "Rata-rata",
-        value: avg.toFixed(1) + "°C",
-        accent: "hsl(var(--primary))",
-      },
-      {
-        label: "Tertinggi",
-        value: max.toFixed(1) + "°C",
-        accent: "#ea580c",
-      },
+      { label: "Terendah", value: min.toFixed(1) + m.unit, accent: m.accentMin },
+      { label: "Rata-rata", value: avg.toFixed(1) + m.unit, accent: m.accentAvg },
+      { label: "Tertinggi", value: max.toFixed(1) + m.unit, accent: m.accentMax },
     ];
-  }, [tempHistory]);
+  }, [data, metric, m]);
 
   const hasChart = data.length > 1;
 
@@ -96,15 +106,15 @@ export default function History() {
       {stats && (
         <div className="grid grid-cols-3 gap-2.5">
           {stats.map((s) => (
-            <StatCard key={s.label} label={s.label} value={s.value} accent={s.accent} icon={Thermometer} />
+            <StatCard key={s.label} label={s.label} value={s.value} accent={s.accent} icon={m.icon} />
           ))}
         </div>
       )}
 
       <div className="space-y-2">
-        <Tabs value={metric} onValueChange={setMetric} className="gap-2">
-          <div className="flex items-center justify-between gap-2">
-            <TabsList className="w-fit">
+        <div className="flex items-center justify-between gap-2">
+          <Tabs value={metric} onValueChange={setMetric}>
+            <TabsList>
               <TabsTrigger value="temp">
                 <Thermometer />
                 Suhu
@@ -114,125 +124,72 @@ export default function History() {
                 Kelembapan
               </TabsTrigger>
             </TabsList>
-            <span className="text-[11px] text-muted-foreground">
-              Data sesi ini (maks 120 titik)
-            </span>
-          </div>
+          </Tabs>
+          <span className="text-[11px] text-muted-foreground">
+            Rata-rata per jam · ~5 hari
+          </span>
+        </div>
 
-          <TabsContent value="temp">
-            <Card className="gap-0 px-0 py-0">
-              {hasChart ? (
-                <div className="h-64 w-full px-1 py-3">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={data} margin={{ top: 8, right: 12, left: -14, bottom: 0 }}>
-                      <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 6" vertical={false} />
-                      <XAxis
-                        dataKey="t"
-                        tick={AXIS_TICK}
-                        axisLine={false}
-                        tickLine={false}
-                        label={{
-                          value: "Sampel",
-                          position: "insideBottom",
-                          offset: -4,
-                          fill: "hsl(var(--muted-foreground))",
-                          fontSize: 11,
-                        }}
-                      />
-                      <YAxis
-                        tick={AXIS_TICK}
-                        axisLine={false}
-                        tickLine={false}
-                        domain={["auto", "auto"]}
-                        tickFormatter={(v) => v + "°"}
-                      />
-                      <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [v.toFixed(1) + " °C", "Suhu"]} />
-                      <Legend wrapperStyle={{ fontSize: 12 }} />
-                      <Line
-                        type="monotone"
-                        dataKey="temp"
-                        name="Suhu"
-                        stroke="#ea580c"
-                        strokeWidth={2.4}
-                        dot={false}
-                        activeDot={{ r: 3 }}
-                        connectNulls
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-1 px-6 py-12 text-center">
-                  <Activity className="size-7 text-muted-foreground/40" />
-                  <p className="text-sm font-medium">Belum ada data sensor yang cukup</p>
-                  <p className="text-xs text-muted-foreground">
-                    Grafik suhu akan tampil setelah beberapa sampel terkumpul.
-                  </p>
-                </div>
-              )}
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="hum">
-            <Card className="gap-0 px-0 py-0">
-              {hasChart ? (
-                <div className="h-64 w-full px-1 py-3">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={data} margin={{ top: 8, right: 12, left: -14, bottom: 0 }}>
-                      <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 6" vertical={false} />
-                      <XAxis
-                        dataKey="t"
-                        tick={AXIS_TICK}
-                        axisLine={false}
-                        tickLine={false}
-                        label={{
-                          value: "Sampel",
-                          position: "insideBottom",
-                          offset: -4,
-                          fill: "hsl(var(--muted-foreground))",
-                          fontSize: 11,
-                        }}
-                      />
-                      <YAxis
-                        tick={AXIS_TICK}
-                        axisLine={false}
-                        tickLine={false}
-                        domain={["auto", "auto"]}
-                        tickFormatter={(v) => v + "%"}
-                      />
-                      <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [v + " %", "Kelembapan"]} />
-                      <Legend wrapperStyle={{ fontSize: 12 }} />
-                      <Line
-                        type="monotone"
-                        dataKey="hum"
-                        name="Kelembapan"
-                        stroke="#0d9488"
-                        strokeWidth={2.4}
-                        dot={false}
-                        activeDot={{ r: 3 }}
-                        connectNulls
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-1 px-6 py-12 text-center">
-                  <Activity className="size-7 text-muted-foreground/40" />
-                  <p className="text-sm font-medium">Belum ada data sensor yang cukup</p>
-                  <p className="text-xs text-muted-foreground">
-                    Grafik kelembapan akan tampil setelah beberapa sampel terkumpul.
-                  </p>
-                </div>
-              )}
-            </Card>
-          </TabsContent>
-        </Tabs>
+        <Card className="gap-0 px-0 py-0">
+          {hasChart ? (
+            <div className="h-64 w-full px-1 py-3">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data} margin={{ top: 8, right: 12, left: -14, bottom: 0 }}>
+                  <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 6" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tick={AXIS_TICK}
+                    axisLine={false}
+                    tickLine={false}
+                    minTickGap={48}
+                    label={{
+                      value: "Jam",
+                      position: "insideBottom",
+                      offset: -4,
+                      fill: "hsl(var(--muted-foreground))",
+                      fontSize: 11,
+                    }}
+                  />
+                  <YAxis
+                    tick={AXIS_TICK}
+                    axisLine={false}
+                    tickLine={false}
+                    domain={["auto", "auto"]}
+                    tickFormatter={(v) => v + m.unit}
+                  />
+                  <Tooltip
+                    contentStyle={TOOLTIP_STYLE}
+                    formatter={(v) => [v.toFixed(1) + m.suffix, m.label]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Line
+                    type="monotone"
+                    dataKey={metric}
+                    name={m.label}
+                    stroke={m.line}
+                    strokeWidth={2.4}
+                    dot={false}
+                    activeDot={{ r: 3 }}
+                    connectNulls
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-1 px-6 py-12 text-center">
+              <Activity className="size-7 text-muted-foreground/40" />
+              <p className="text-sm font-medium">Belum ada data sensor yang cukup</p>
+              <p className="text-xs text-muted-foreground">
+                Grafik naik/turun akan terlihat setelah beberapa jam data terkumpul
+                (1 titik per jam).
+              </p>
+            </div>
+          )}
+        </Card>
       </div>
 
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Log Aktivitas</h2>
-        </div>
+        <h2 className="text-sm font-semibold">Log Aktivitas</h2>
         <Card className="gap-0 py-0">
           <EventFeed limit={40} />
         </Card>

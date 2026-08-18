@@ -197,7 +197,6 @@ void handleConfigSet(String msg) {
     rule.cooldownSec = r["cooldownSec"] | 0;
 
     const char* name = r["name"] | "";
-
     strncpy(rule.name, name, MAX_RULE_NAME_LEN);
     rule.name[MAX_RULE_NAME_LEN] = '\0';
 
@@ -227,10 +226,12 @@ void handleConfigSet(String msg) {
 
     if (strcmp(type, "temp") == 0) {
       rule.type = RULE_TEMP;
-    } else if (strcmp(type, "hum") == 0) {
-      rule.type = RULE_HUM;
+    } else if (strcmp(type, "timer") == 0) {
+      rule.type = RULE_TIMER;
     } else if (strcmp(type, "sched_temp") == 0) {
       rule.type = RULE_SCHED_TEMP;
+    } else if (strcmp(type, "hum") == 0) {
+      rule.type = RULE_HUM;
     } else {
       rule.type = RULE_TIME;
     }
@@ -254,6 +255,19 @@ void handleConfigSet(String msg) {
     rule.endMin = r["endMin"] | 0;
     rule.onValue = r["onValue"] | 0;
     rule.offValue = r["offValue"] | 0;
+
+    // Timer: durasi ON/OFF (detik). Fase mulai saat aturan disimpan.
+    rule.onSec = r["onSec"] | 0;
+    rule.offSec = r["offSec"] | 0;
+    rule.startEpoch = timeIsSynced() ? getEpochSec() : 0;
+
+    // Validasi timer: kedua fase minimal 1 detik.
+    if (rule.type == RULE_TIMER && (rule.onSec == 0 || rule.offSec == 0)) {
+
+      Serial.println("[MQTT] Aturan timer tidak valid (durasi 0)");
+      publishConfigAck(false, "invalid_timer");
+      return;
+    }
 
     count++;
   }

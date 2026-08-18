@@ -18,6 +18,8 @@ export const emptyRule = () => ({
   days: [1, 2, 3, 4, 5],
   startMin: 6 * 60,
   endMin: 18 * 60,
+  onSec: 600,
+  offSec: 600,
   onValue: 0,
   offValue: 0,
   priority: 10,
@@ -40,7 +42,7 @@ export default function Automation() {
   const online = deviceOnline;
 
   const byType = useMemo(() => {
-    const m = { time: [], temp: [], hum: [], sched_temp: [] };
+    const m = { time: [], temp: [], timer: [], sched_temp: [] };
     rules.forEach((r) => m[r.type]?.push(r));
     return m;
   }, [rules]);

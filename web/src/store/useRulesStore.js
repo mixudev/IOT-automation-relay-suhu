@@ -30,12 +30,14 @@ export const useRulesStore = create((set, get) => ({
         name: typeof r.name === "string" ? r.name : "",
         enabled: r.enabled !== false,
         relays: Array.isArray(r.relays) ? r.relays : [],
-        type: ["time", "temp", "hum", "sched_temp"].includes(r.type)
+        type: ["time", "temp", "timer", "sched_temp"].includes(r.type)
           ? r.type
           : "time",
         days: Array.isArray(r.days) ? r.days : [],
         startMin: r.startMin || 0,
         endMin: r.endMin || 0,
+        onSec: r.onSec || 0,
+        offSec: r.offSec || 0,
         onValue: r.onValue || 0,
         offValue: r.offValue || 0,
         priority: r.priority || 0,
@@ -107,6 +109,8 @@ export const useRulesStore = create((set, get) => ({
         days: r.days || [],
         startMin: r.startMin || 0,
         endMin: r.endMin || 0,
+        onSec: r.onSec || 0,
+        offSec: r.offSec || 0,
         onValue: r.onValue || 0,
         offValue: r.offValue || 0,
         priority: r.priority || 0,

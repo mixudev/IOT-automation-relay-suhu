@@ -16,7 +16,7 @@
 // dimuat ulang.
 
 #define AUTO_FILE_MAGIC 0xA5010002UL
-#define AUTO_FILE_VERSION 2
+#define AUTO_FILE_VERSION 3
 
 struct PersistHeader {
   uint32_t magic;
@@ -405,6 +405,28 @@ static bool evaluateRule(const AutomationRule& r, uint8_t idx) {
       return ruleActive[idx];
     }
 
+    case RULE_TIMER: {
+
+      // Timer butuh waktu tersinkron supaya fase bisa konsisten
+      // dan berlanjut setelah reboot.
+      if (!timeIsSynced()) {
+        return false;
+      }
+
+      uint32_t period = (uint32_t)r.onSec + r.offSec;
+
+      if (period == 0) {
+        return false;
+      }
+
+      uint32_t elapsed =
+        getEpochSec() - r.startEpoch;
+
+      uint32_t phase = elapsed % period;
+
+      return phase < r.onSec;
+    }
+
     case RULE_SCHED_TEMP:
 
       if (!timeIsSynced() || !isDayMatch(r)) {
@@ -451,6 +473,12 @@ static const char* buildReason(
   if (r.type == RULE_HUM) {
 
     snprintf(out, len, "lembap %.0f%%", getHumidity());
+    return out;
+  }
+
+  if (r.type == RULE_TIMER) {
+
+    snprintf(out, len, "timer %u/%u s", r.onSec, r.offSec);
     return out;
   }
 
@@ -528,7 +556,11 @@ void automationEval() {
 
     bool desired = evaluateRule(winner, bestIdx);
 
-    // Cooldown: batasi frekuensi switching (proteksi relay).
+    // Cooldown tidak berlaku untuk aturan timer (siklus memang
+    // dijadwalkan berulang). Hanya untuk aturan sensor/jadwal
+    // agar relay tidak "churn" di sekitar ambang.
+    bool isTimer = (winner.type == RULE_TIMER);
+
     uint16_t cooldownSec = winner.cooldownSec;
 
     if (cooldownSec == 0) {
@@ -540,6 +572,7 @@ void automationEval() {
     uint32_t now = millis();
 
     if (
+      !isTimer &&
       (uint32_t)(now - lastSwitchMs[relayIdx]) < cooldownMs
     ) {
       continue; // dalam masa cooldown

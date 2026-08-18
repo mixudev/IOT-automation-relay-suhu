@@ -81,3 +81,7 @@ uint8_t getLocalDayOfWeek() {
   // Konversi ke 0=Senin ... 6=Minggu supaya cocok dengan bitmask.
   return (uint8_t)((ti->tm_wday + 6) % 7);
 }
+
+uint32_t getEpochSec() {
+  return (uint32_t)time(nullptr);
+}

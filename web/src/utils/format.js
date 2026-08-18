@@ -47,6 +47,22 @@ export function timeRangeLabel(startMin, endMin) {
   return minuteToHM(startMin) + " - " + minuteToHM(endMin);
 }
 
+// Detik -> { val, unit } untuk tampilan (pilih satuan paling besar yang rapi)
+export function secToParts(sec) {
+  const s = sec > 0 ? sec : 0;
+  if (s % 3600 === 0) return { val: s / 3600, unit: "jam" };
+  if (s % 60 === 0) return { val: s / 60, unit: "menit" };
+  return { val: s, unit: "detik" };
+}
+
+// { val, unit } -> detik
+export function partsToSec(val, unit) {
+  const n = Math.max(0, parseInt(val, 10) || 0);
+  if (unit === "jam") return n * 3600;
+  if (unit === "menit") return n * 60;
+  return n;
+}
+
 // Ringkasan kondisi satu aturan -> kalimat singkat
 export function ruleConditionLabel(r) {
   switch (r.type) {
@@ -65,14 +81,14 @@ export function ruleConditionLabel(r) {
         (r.offValue / 10).toFixed(1) +
         "°C mati"
       );
-    case "hum":
+    case "timer": {
+      const on = secToParts(r.onSec);
+      const off = secToParts(r.offSec);
       return (
-        "Kelembapan ≥ " +
-        (r.onValue / 10).toFixed(0) +
-        "% nyala, ≤ " +
-        (r.offValue / 10).toFixed(0) +
-        "% mati"
+        "Siklus: nyala " + on.val + " " + on.unit +
+        ", mati " + off.val + " " + off.unit
       );
+    }
     case "sched_temp":
       return (
         "Setiap " +

@@ -17,6 +17,7 @@ static const char* ruleTypeStr(uint8_t type) {
     case RULE_TEMP:       return "temp";
     case RULE_HUM:        return "hum";
     case RULE_SCHED_TEMP: return "sched_temp";
+    case RULE_TIMER:      return "timer";
     default:              return "time";
   }
 }
@@ -208,6 +209,11 @@ String buildConfigJSON() {
     if (r.type == RULE_TEMP || r.type == RULE_HUM || r.type == RULE_SCHED_TEMP) {
       rule["onValue"] = r.onValue;
       rule["offValue"] = r.offValue;
+    }
+
+    if (r.type == RULE_TIMER) {
+      rule["onSec"] = r.onSec;
+      rule["offSec"] = r.offSec;
     }
   }
 

@@ -13,7 +13,7 @@ export const DEVICE_CHECK_INTERVAL_MS = 5000;
 export const RULE_TYPES = {
   time: { label: "Waktu", short: "Jadwal" },
   temp: { label: "Suhu", short: "Suhu" },
-  hum: { label: "Kelembapan", short: "Lembap" },
+  timer: { label: "Timer", short: "Timer" },
   sched_temp: { label: "Waktu + Suhu", short: "Kombinasi" },
 };
 
@@ -22,6 +22,6 @@ export const DAY_SHORT = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
 export const TYPE_COLOR = {
   time: "blue",
   temp: "orange",
-  hum: "green",
+  timer: "green",
   sched_temp: "gradient",
 };

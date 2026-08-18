@@ -11,5 +11,7 @@ bool timeIsSynced();
 uint16_t getLocalMinuteOfDay();
 // 0 = Senin ... 6 = Minggu — matching bitmask days di aturan.
 uint8_t getLocalDayOfWeek();
+// Epoch detik (UTC) — dipakai aturan tipe timer (fase berulang).
+uint32_t getEpochSec();
 
 #endif

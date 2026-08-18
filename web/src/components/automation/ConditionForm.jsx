@@ -1,8 +1,9 @@
+import { useEffect, useState } from "react";
 import DayPicker from "./DayPicker.jsx";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
-import { minuteToHM, hmToMinute } from "../../utils/format.js";
+import { minuteToHM, hmToMinute, secToParts, partsToSec } from "../../utils/format.js";
 
 function TimeRange({ value, onChange }) {
   const start = minuteToHM(value.startMin);
@@ -31,6 +32,80 @@ function TimeRange({ value, onChange }) {
       <p className="text-xs text-muted-foreground">
         Aktif setiap hari terpilih di rentang jam ini. Melewati tengah malam juga
         didukung.
+      </p>
+    </div>
+  );
+}
+
+const UNITS = ["detik", "menit", "jam"];
+
+function DurationField({ label, seconds, onChange }) {
+  const [unit, setUnit] = useState("menit");
+  const [value, setValue] = useState("10");
+
+  useEffect(() => {
+    const p = secToParts(seconds);
+    setUnit(p.unit);
+    setValue(String(p.val));
+  }, [seconds]);
+
+  const commit = (v, u) => onChange(partsToSec(v, u));
+
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <div className="flex gap-1.5">
+        <Input
+          type="number"
+          min={1}
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value);
+            commit(e.target.value, unit);
+          }}
+          className="flex-1"
+        />
+        <div className="flex shrink-0 rounded-md border bg-muted p-0.5">
+          {UNITS.map((u) => (
+            <button
+              type="button"
+              key={u}
+              onClick={() => {
+                setUnit(u);
+                commit(value, u);
+              }}
+              className={
+                "rounded px-1.5 text-[11px] font-medium capitalize transition-colors " +
+                (unit === u
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground")
+              }
+            >
+              {u}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TimerFields({ value, onChange }) {
+  return (
+    <div className="space-y-4">
+      <DurationField
+        label="Nyalakan selama"
+        seconds={value.onSec}
+        onChange={(v) => onChange({ onSec: v })}
+      />
+      <DurationField
+        label="Matikan selama"
+        seconds={value.offSec}
+        onChange={(v) => onChange({ offSec: v })}
+      />
+      <p className="text-xs text-muted-foreground">
+        Relay menyala lalu mati berulang sesuai durasi. Minimal 1 detik tiap
+        fase; siklus dimulai saat aturan disimpan.
       </p>
     </div>
   );
@@ -113,6 +188,13 @@ export default function ConditionForm({ rule, onChange }) {
         </>
       )}
 
+      {type === "timer" && (
+        <TimerFields
+          value={{ onSec: rule.onSec, offSec: rule.offSec }}
+          onChange={onChange}
+        />
+      )}
+
       {(type === "temp" || type === "sched_temp") && (
         <div className="space-y-1.5">
           <Label>Ambang suhu</Label>
@@ -130,20 +212,6 @@ export default function ConditionForm({ rule, onChange }) {
               sampai data valid kembali.
             </p>
           )}
-        </div>
-      )}
-
-      {type === "hum" && (
-        <div className="space-y-1.5">
-          <Label>Ambang kelembapan</Label>
-          <SensorThresholds
-            value={{ onValue: rule.onValue, offValue: rule.offValue }}
-            onChange={onChange}
-            suffix="%"
-            min={20}
-            max={95}
-            step={5}
-          />
         </div>
       )}
     </div>

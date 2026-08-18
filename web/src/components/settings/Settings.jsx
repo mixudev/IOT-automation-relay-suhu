@@ -215,23 +215,37 @@ export default function Settings() {
           </div>
           <Row label="Update terakhir" desc="Status terakhir dari perangkat" value={lastUpdateLabel} />
         </div>
-        <div className="flex flex-wrap gap-2 px-3.5 pb-3.5">
-          <Button size="sm" variant="outline" onClick={requestConfig} disabled={!online}>
+        <div className="flex items-center gap-1.5 border-t bg-muted/40 px-3.5 py-2.5">
+          <span className="text-[11px] text-muted-foreground">Aksi:</span>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={requestConfig}
+            disabled={!online}
+            title="Minta config ulang"
+            aria-label="Minta config ulang"
+          >
             <RefreshCw />
-            Minta config ulang
-          </Button>
-          <Button size="sm" variant="outline" onClick={downloadConfig}>
-            <Download />
-            Unduh config JSON
           </Button>
           <Button
-            size="sm"
-            variant="destructive"
+            size="icon"
+            variant="ghost"
+            onClick={downloadConfig}
+            title="Unduh config JSON"
+            aria-label="Unduh config JSON"
+          >
+            <Download />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
             onClick={() => setConfirmReboot(true)}
             disabled={!online}
+            title="Reboot perangkat"
+            aria-label="Reboot perangkat"
+            className="ml-auto text-red-600 hover:bg-red-50 hover:text-red-700"
           >
             <RotateCcw />
-            Reboot perangkat
           </Button>
         </div>
       </Card>
