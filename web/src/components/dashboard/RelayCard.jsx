@@ -9,11 +9,11 @@ export default function RelayCard({ number }) {
   const name = useAppStore((s) => s.relayNames[number - 1]);
   const on = useAppStore((s) => s.relayStates[number - 1]);
   const auto = useAppStore((s) => s.relayModes[number - 1]);
-  const conn = useAppStore((s) => s.conn);
+  const deviceOnline = useAppStore((s) => s.deviceOnline);
   const manualRelay = useAppStore((s) => s.manualRelay);
   const setMode = useAppStore((s) => s.setMode);
 
-  const online = conn === "online";
+  const online = deviceOnline;
 
   return (
     <Card className={"gap-0 py-0" + (on ? " border-emerald-200" : "")}>

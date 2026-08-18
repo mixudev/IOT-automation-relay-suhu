@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
-import { Home, Zap, History, Settings, Power, TriangleAlert } from "lucide-react";
+import { Home, Zap, History, Settings, Power, TriangleAlert, WifiOff } from "lucide-react";
 import { useAppStore } from "./store/useAppStore.js";
 import Dashboard from "./components/dashboard/Dashboard.jsx";
 import Automation from "./components/automation/Automation.jsx";
@@ -14,36 +14,59 @@ const NAV = [
   { id: "settings", label: "Pengaturan", icon: Settings },
 ];
 
+const STATUS = {
+  online: {
+    label: "Online",
+    title: "Perangkat terhubung",
+    cls: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    dot: "bg-emerald-500",
+  },
+  "device-offline": {
+    label: "Perangkat offline",
+    title: "Perangkat tidak merespons",
+    cls: "border-amber-200 bg-amber-50 text-amber-700",
+    dot: "bg-amber-500",
+  },
+  offline: {
+    label: "Offline",
+    title: "Terputus dari broker",
+    cls: "border-red-200 bg-red-50 text-red-700",
+    dot: "bg-red-500",
+  },
+  connecting: {
+    label: "…",
+    title: "Menghubungkan…",
+    cls: "border-border bg-muted text-muted-foreground",
+    dot: "bg-amber-400",
+  },
+};
+
 export default function App() {
   const [page, setPage] = useState("dashboard");
 
   const conn = useAppStore((s) => s.conn);
+  const deviceOnline = useAppStore((s) => s.deviceOnline);
   const time = useAppStore((s) => s.time);
   const ntpSynced = useAppStore((s) => s.ntpSynced);
   const ntpWarning = useAppStore((s) => s.ntpWarning);
 
-  const connLabel =
-    conn === "online" ? "Online" : conn === "offline" ? "Offline" : "…";
-  const connTitle =
+  const status =
     conn === "online"
-      ? "Terhubung"
+      ? deviceOnline
+        ? "online"
+        : "device-offline"
       : conn === "offline"
-        ? "Terputus"
-        : "Menghubungkan…";
+        ? "offline"
+        : "connecting";
 
-  const connClass =
-    conn === "online"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-      : conn === "offline"
-        ? "border-red-200 bg-red-50 text-red-700"
-        : "border-border bg-muted text-muted-foreground";
+  const st = STATUS[status];
 
-  const dotClass =
-    conn === "online"
-      ? "bg-emerald-500"
-      : conn === "offline"
-        ? "bg-red-500"
-        : "bg-amber-400";
+  const offlineReason =
+    status === "device-offline"
+      ? "Perangkat tidak merespons — semua fitur dinonaktifkan sampai perangkat kembali online."
+      : status === "offline"
+        ? "Tidak terhubung ke broker MQTT — semua fitur dinonaktifkan."
+        : "";
 
   const renderPage = () => {
     switch (page) {
@@ -79,26 +102,33 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2">
-          {conn === "online" && (
+          {status === "online" && (
             <span className="rounded-full border bg-muted px-2 py-1 font-mono text-[11px] text-muted-foreground">
               {time || "--:--"}
             </span>
           )}
           <span
-            title={connTitle}
+            title={st.title}
             className={
               "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium " +
-              connClass
+              st.cls
             }
           >
-            <span className={"size-1.5 rounded-full " + dotClass} />
-            {connLabel}
+            <span className={"size-1.5 rounded-full " + st.dot} />
+            {st.label}
           </span>
         </div>
       </header>
 
       <main className="relative flex-1 px-3.5 pb-24 pt-4">
-        {ntpWarning && !ntpSynced && (
+        {offlineReason && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-medium text-amber-800">
+            <WifiOff className="size-4 shrink-0" />
+            {offlineReason}
+          </div>
+        )}
+
+        {ntpWarning && !ntpSynced && status === "online" && (
           <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
             <TriangleAlert className="size-4 shrink-0" />
             Waktu belum sinkron (NTP). Aturan jadwal aktif setelah waktu tersinkron.

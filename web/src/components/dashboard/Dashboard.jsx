@@ -2,7 +2,6 @@ import { useAppStore } from "../../store/useAppStore.js";
 import { Card, CardContent } from "@/components/ui/card";
 import { Thermometer, Droplets, Power, Activity } from "lucide-react";
 import RelayCard from "./RelayCard.jsx";
-import EventFeed from "./EventFeed.jsx";
 import { fmtTemp, fmtHum } from "../../utils/format.js";
 import { RELAY_COUNT } from "../../config.js";
 
@@ -32,21 +31,12 @@ function StatCard({ label, value, unit, icon: Icon, valueClass, chipClass }) {
 export default function Dashboard() {
   const temperature = useAppStore((s) => s.temperature);
   const humidity = useAppStore((s) => s.humidity);
-  const conn = useAppStore((s) => s.conn);
+  const deviceOnline = useAppStore((s) => s.deviceOnline);
   const relayStates = useAppStore((s) => s.relayStates);
   const rulesActive = useAppStore((s) => s.rulesActive);
-  const lastUpdate = useAppStore((s) => s.lastUpdate);
 
-  const online = conn === "online";
+  const online = deviceOnline;
   const relayOn = relayStates.filter(Boolean).length;
-
-  const lastUpdateLabel = lastUpdate
-    ? new Date(lastUpdate).toLocaleTimeString("id-ID", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      })
-    : "--:--:--";
 
   return (
     <div className="space-y-4">
@@ -99,18 +89,6 @@ export default function Dashboard() {
             <RelayCard key={i + 1} number={i + 1} />
           ))}
         </div>
-      </div>
-
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Aktivitas</h2>
-          <span className="text-[11px] text-muted-foreground">
-            Update {lastUpdateLabel}
-          </span>
-        </div>
-        <Card className="gap-0 py-0">
-          <EventFeed limit={12} />
-        </Card>
       </div>
     </div>
   );

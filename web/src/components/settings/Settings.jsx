@@ -57,7 +57,7 @@ function ModeRow({ number, auto, onToggle, disabled }) {
 }
 
 export default function Settings() {
-  const conn = useAppStore((s) => s.conn);
+  const deviceOnline = useAppStore((s) => s.deviceOnline);
   const relayNames = useAppStore((s) => s.relayNames);
   const relayModes = useAppStore((s) => s.relayModes);
   const setRelayName = useAppStore((s) => s.setRelayName);
@@ -68,7 +68,7 @@ export default function Settings() {
   const lastUpdate = useAppStore((s) => s.lastUpdate);
   const requestConfig = useAppStore((s) => s.requestConfig);
 
-  const online = conn === "online";
+  const online = deviceOnline;
   const [confirmReboot, setConfirmReboot] = useState(false);
   const [editingName, setEditingName] = useState(null);
   const [nameDraft, setNameDraft] = useState("");

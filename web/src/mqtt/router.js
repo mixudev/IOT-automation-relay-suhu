@@ -53,6 +53,8 @@ export function startRouting() {
     // ---- CONFIG RESP (ack / get) ----
     else if (topic === CFG.topicConfigResp) {
 
+      app.markSeen();
+
       if (data.ok === true || Array.isArray(data.rules)) {
 
         rules.applyConfig(data);

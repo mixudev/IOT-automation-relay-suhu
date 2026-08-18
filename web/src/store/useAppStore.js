@@ -14,7 +14,9 @@ function pushHistory(arr, value) {
 
 export const useAppStore = create((set, get) => ({
 
-  conn: "connecting", // connecting | online | offline
+  conn: "connecting", // connecting | online | offline (koneksi broker)
+  deviceOnline: false, // perangkat benar-benar merespons (heartbeat)
+  lastSeen: null,      // timestamp pesan terakhir dari perangkat
   ntpWarning: false,
 
   relayStates: [false, false, false, false],
@@ -35,7 +37,10 @@ export const useAppStore = create((set, get) => ({
   // ---- status internal ----
 
   setConn: (conn) => set({ conn }),
+  setDeviceOnline: (v) => set({ deviceOnline: v }),
   setNtpWarning: (v) => set({ ntpWarning: v }),
+
+  markSeen: () => set({ lastSeen: Date.now() }),
 
   applyStatus: (data) => {
     const s = get();
@@ -75,6 +80,8 @@ export const useAppStore = create((set, get) => ({
           ? data.rulesActive
           : s.rulesActive,
       lastUpdate: Date.now(),
+      lastSeen: Date.now(),
+      deviceOnline: true,
     };
 
     // Taruh sensor ke history juga (jika ada nilai baru).
@@ -96,12 +103,16 @@ export const useAppStore = create((set, get) => ({
       tempHistory: pushHistory(s.tempHistory, temperature),
       humHistory: pushHistory(s.humHistory, humidity),
       lastUpdate: Date.now(),
+      lastSeen: Date.now(),
+      deviceOnline: true,
     });
   },
 
   pushEvent: (ev) =>
     set((s) => ({
       events: [ev, ...s.events].slice(0, 60),
+      lastSeen: Date.now(),
+      deviceOnline: true,
     })),
 
   clearHistory: () =>

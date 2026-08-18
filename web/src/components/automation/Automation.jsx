@@ -25,7 +25,7 @@ export const emptyRule = () => ({
 });
 
 export default function Automation() {
-  const conn = useAppStore((s) => s.conn);
+  const deviceOnline = useAppStore((s) => s.deviceOnline);
   const [editing, setEditing] = useState(null); // null | { idx, rule }
 
   const rules = useRulesStore((s) => s.rules);
@@ -37,7 +37,7 @@ export default function Automation() {
   const dupRule = useRulesStore((s) => s.dupRule);
   const fetch = useRulesStore((s) => s.fetch);
 
-  const online = conn === "online";
+  const online = deviceOnline;
 
   const byType = useMemo(() => {
     const m = { time: [], temp: [], hum: [], sched_temp: [] };

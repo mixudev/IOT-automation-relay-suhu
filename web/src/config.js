@@ -5,6 +5,11 @@ export default CFG;
 
 export const RELAY_COUNT = 4;
 
+// Deteksi perangkat offline: anggap perangkat mati bila tidak ada
+// pesan (status/sensor/event) selama jangka waktu ini.
+export const DEVICE_OFFLINE_AFTER_MS = 15000;
+export const DEVICE_CHECK_INTERVAL_MS = 5000;
+
 export const RULE_TYPES = {
   time: { label: "Waktu", short: "Jadwal" },
   temp: { label: "Suhu", short: "Suhu" },
