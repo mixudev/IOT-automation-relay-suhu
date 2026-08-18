@@ -4,6 +4,7 @@
 #include "relay.h"
 #include "sensor.h"
 #include "status.h"
+#include "automation.h"
 #include <ESP8266WebServer.h>
 
 ESP8266WebServer server(80);
@@ -74,6 +75,15 @@ void handleSensor() {
   );
 }
 
+void handleConfig() {
+
+  server.send(
+    200,
+    "application/json",
+    buildConfigJSON()
+  );
+}
+
 void handleNotFound() {
 
   String uri =
@@ -128,6 +138,10 @@ void handleNotFound() {
         bool state =
           action == "on";
 
+        // Kontrol manual -> relay pindah ke mode MANUAL
+        // (dijeda dari automation sampai user set AUTO lagi).
+        automationSetRelayMode(relay - 1, false);
+
         setRelay(
           relay - 1,
           state
@@ -163,6 +177,10 @@ void handleNotFound() {
       return;
     }
 
+    for (uint8_t i = 0; i < RELAY_COUNT; i++) {
+      automationSetRelayMode(i, false);
+    }
+
     setAllRelays(true);
 
     server.send(
@@ -187,6 +205,10 @@ void handleNotFound() {
       );
 
       return;
+    }
+
+    for (uint8_t i = 0; i < RELAY_COUNT; i++) {
+      automationSetRelayMode(i, false);
     }
 
     setAllRelays(false);
@@ -229,6 +251,12 @@ void initWebServer() {
     "/sensor",
     HTTP_GET,
     handleSensor
+  );
+
+  server.on(
+    "/config",
+    HTTP_GET,
+    handleConfig
   );
 
   server.onNotFound(

@@ -137,4 +137,39 @@ const bool ENABLE_MODEM_SLEEP = true;
 // Timeout koneksi WiFi (ms) sebelum ESP melanjutkan boot.
 const uint32_t WIFI_CONNECT_TIMEOUT_MS = 20000;
 
+// =====================================================
+// AUTOMATION (MESIN ATURAN)
+// =====================================================
+
+// Nama default relay ( bisa diganti dari web / command ).
+// Disimpan di LittleFS dan dikirim ke web lewat status/config.
+const char* const RELAY_DEFAULT_NAMES[RELAY_COUNT] = {
+  "Relay 1", "Relay 2", "Relay 3", "Relay 4"
+};
+
+// Batas jumlah aturan. Menyesuaikan RAM (32 x ~32B = 1KB).
+// Satu relay boleh di-assign ke banyak aturan.
+#define MAX_RULES 32
+#define MAX_RULE_NAME_LEN 16
+
+// File binary konfigurasi automation di LittleFS.
+#define AUTOMATION_FILE "/auto.bin"
+
+// Interval evaluasi aturan (ms). DHT dibaca max 1Hz, jadi
+// 1 detik sudah cukup untuk mengontrol relay.
+const uint32_t AUTO_EVAL_INTERVAL_MS = 1000;
+
+// Jeda default antar-switch per relay (detik) bila aturan
+// tidak men-set cooldown sendiri. Melindungi relay dari churn.
+const uint16_t AUTO_DEFAULT_COOLDOWN_SEC = 60;
+
+// =====================================================
+// WAKTU (NTP)
+// =====================================================
+
+const char* const NTP_SERVER = "pool.ntp.org";
+
+// Offset zona waktu dalam detik (Asia/Jakarta = UTC+7, tanpa DST).
+const long NTP_TZ_OFFSET_SEC = 7L * 3600L;
+
 #endif

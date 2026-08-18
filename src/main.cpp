@@ -6,6 +6,8 @@
 #include "sensor.h"
 #include "webserver.h"
 #include "mqttclient.h"
+#include "automation.h"
+#include "timeSync.h"
 
 // =====================================================
 // MAIN: WIRING
@@ -16,9 +18,9 @@
 // Relay IN3 -> D5 / GPIO14
 // Relay IN4 -> D6 / GPIO12
 // Relay GND -> GND
-// DHT11 DATA -> D7 / GPIO13
-// DHT11 VCC  -> 3.3V
-// DHT11 GND  -> GND
+// DHT22 DATA -> D7 / GPIO13
+// DHT22 VCC  -> 3.3V
+// DHT22 GND  -> GND
 
 void setup() {
 
@@ -129,6 +131,12 @@ void setup() {
   // MQTT untuk kontrol jarak jauh
   initMQTT();
 
+  // Mesin automation (aturan jadwal / suhu / kelembapan)
+  automationInit();
+
+  // Sinkronisasi waktu NTP (untuk aturan berbasis jadwal)
+  initTimeSync();
+
   Serial.println(
     "HTTP server started"
   );
@@ -143,6 +151,10 @@ void loop() {
   handleWebClient();
 
   updateSensor();
+
+  timeSyncLoop();
+
+  automationEval();
 
   mqttLoop();
 }
