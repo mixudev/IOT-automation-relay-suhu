@@ -3,6 +3,21 @@
 
 bool relayState[RELAY_COUNT];
 
+static void writeRelayPin(uint8_t index, bool state) {
+
+  if (RELAY_ACTIVE_LOW) {
+    digitalWrite(
+      RELAY_PINS[index],
+      state ? LOW : HIGH
+    );
+  } else {
+    digitalWrite(
+      RELAY_PINS[index],
+      state ? HIGH : LOW
+    );
+  }
+}
+
 void initRelays() {
 
   for (
@@ -16,9 +31,28 @@ void initRelays() {
       OUTPUT
     );
 
-    // Pastikan relay OFF saat boot
-    setRelay(i, false);
+    // Paksa tulis OFF. Jangan lewat setRelay() karena global
+    // relayState sudah false saat boot (akan short-circuit) dan
+    // pin tidak pernah benar-benar dimatikan.
+    relayState[i] = false;
+    writeRelayPin(i, false);
   }
+}
+
+// Tulis pin dan perbarui state tanpa cek kesamaan (boot/restore).
+void forceRelayState(uint8_t index, bool state) {
+
+  if (index >= RELAY_COUNT) {
+    return;
+  }
+
+  relayState[index] = state;
+  writeRelayPin(index, state);
+
+  Serial.print("[RELAY] Ch ");
+  Serial.print(index + 1);
+  Serial.print(" restore -> ");
+  Serial.println(state ? "ON" : "OFF");
 }
 
 void setRelay(uint8_t index, bool state) {
@@ -33,18 +67,7 @@ void setRelay(uint8_t index, bool state) {
   }
 
   relayState[index] = state;
-
-  if (RELAY_ACTIVE_LOW) {
-    digitalWrite(
-      RELAY_PINS[index],
-      state ? LOW : HIGH
-    );
-  } else {
-    digitalWrite(
-      RELAY_PINS[index],
-      state ? HIGH : LOW
-    );
-  }
+  writeRelayPin(index, state);
 
   Serial.print("[RELAY] Channel ");
   Serial.print(index + 1);

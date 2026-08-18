@@ -3,21 +3,26 @@
 #include "sensor.h"
 #include "timeSync.h"
 #include <LittleFS.h>
+#include <stddef.h>
 
 // =====================================================
 // PERSISTENSI
 // =====================================================
-// Satu file binary: magic + version + relayModes + relayNames
-// + jumlah aturan + array aturan. Ditulis HANYA saat ada
-// perubahan (anti flash-wear). CRC-8 sederhana untuk deteksi korup.
+// Satu file binary: magic + version + relayModes +
+// relayState + relayNames + jumlah aturan + array aturan.
+// Ditulis HANYA saat ada perubahan (anti flash-wear).
+// CRC-8 (XOR accumulative) untuk deteksi korup; byte CRC
+// TIDAK ikut dihitung agar nilai yang disimpan valid saat
+// dimuat ulang.
 
 #define AUTO_FILE_MAGIC 0xA5010002UL
-#define AUTO_FILE_VERSION 1
+#define AUTO_FILE_VERSION 2
 
 struct PersistHeader {
   uint32_t magic;
   uint16_t version;
   uint8_t  relayModes;              // bit per relay, 1 = AUTO
+  uint8_t  relayState;              // bit per relay, 1 = ON (terpulihkan saat boot)
   uint8_t  relayNameLen;            // panjang nama relay (17)
   uint8_t  ruleCount;
   uint8_t  crc;
@@ -38,6 +43,7 @@ static uint8_t relayModes = 0xFF;   // default semua AUTO
 static bool ruleActive[MAX_RULES];  // state hysteresis per aturan
 static uint32_t lastSwitchMs[RELAY_COUNT]; // anti-churn per relay
 static uint32_t lastEvalMs = 0;
+static uint8_t lastPersistedBits = 0; // state relay terakhir di file
 static AutomationEventCb eventCb = nullptr;
 
 // Callback bebas reentrant: dipakai oleh sensor.cpp bila perlu.
@@ -69,6 +75,8 @@ static void writeDefaults() {
 
   cfg.header.magic = AUTO_FILE_MAGIC;
   cfg.header.version = AUTO_FILE_VERSION;
+  cfg.header.relayModes = 0xFF;      // default semua AUTO
+  cfg.header.relayState = 0;         // default semua OFF
   cfg.header.relayNameLen = MAX_RULE_NAME_LEN + 1;
   cfg.header.ruleCount = 0;
   cfg.header.crc = 0;
@@ -89,7 +97,9 @@ static void recalcCrc() {
 
   uint8_t buf[sizeof(PersistFile)];
   memcpy(buf, &cfg, sizeof(cfg));
-  cfg.header.crc = computeCrc(buf + 1, sizeof(buf) - 1);
+  // Byte CRC tidak ikut dihitung (dibuat 0 dulu).
+  buf[offsetof(PersistHeader, crc)] = 0;
+  cfg.header.crc = computeCrc(buf, sizeof(buf));
 }
 
 bool automationSave() {
@@ -147,13 +157,20 @@ void automationInit() {
 
     uint8_t buf[sizeof(PersistFile)];
     memcpy(buf, &cfg, sizeof(cfg));
+    buf[offsetof(PersistHeader, crc)] = 0;
 
     if (
       cfg.header.crc ==
-      computeCrc(buf + 1, sizeof(buf) - 1)
+      computeCrc(buf, sizeof(buf))
     ) {
 
       relayModes = cfg.header.relayModes;
+      lastPersistedBits = cfg.header.relayState;
+
+      // Pulihkan kondisi relay sesuai pengaturan terakhir.
+      for (uint8_t i = 0; i < relayCount(); i++) {
+        forceRelayState(i, (cfg.header.relayState >> i) & 1);
+      }
 
       Serial.print("[AUTO] Config dimuat: ");
       Serial.print(cfg.header.ruleCount);
@@ -167,6 +184,7 @@ void automationInit() {
     Serial.println("[AUTO] Config korup, pakai default");
   }
 
+  lastPersistedBits = 0;
   writeDefaults();
   automationSave();
 }
@@ -223,6 +241,13 @@ void automationReset() {
 
   memset(ruleActive, 0, sizeof(ruleActive));
   memset(lastSwitchMs, 0, sizeof(lastSwitchMs));
+
+  lastPersistedBits = 0;
+
+  // Kondisi relay kembali semua OFF (sesuai default).
+  for (uint8_t i = 0; i < relayCount(); i++) {
+    forceRelayState(i, false);
+  }
 }
 
 bool automationSetRuleEnabled(uint8_t id, bool enabled) {
@@ -440,6 +465,23 @@ void automationEval() {
   }
 
   lastEvalMs = millis();
+
+  // Persist state relay bila berubah — supaya saat restart relay
+  // kembali ke kondisi yang sama (bukan nyala semua).
+  uint8_t bits = 0;
+
+  for (uint8_t ri = 0; ri < relayCount(); ri++) {
+    if (getRelayState(ri)) {
+      bits |= (uint8_t)(1 << ri);
+    }
+  }
+
+  if (bits != lastPersistedBits) {
+
+    lastPersistedBits = bits;
+    cfg.header.relayState = bits;
+    automationSave();
+  }
 
   // Evaluasi setiap relay yang dalam mode AUTO.
   for (uint8_t relayIdx = 0; relayIdx < relayCount(); relayIdx++) {
