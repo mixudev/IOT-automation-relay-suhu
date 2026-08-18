@@ -1,0 +1,660 @@
+/* =====================================================
+   TOKENS
+   Two themes share one structure. Light: porcelain
+   surface + ink text + voltage-blue accent. Dark: soft
+   true-neutral charcoal (no navy undertone) + a brighter
+   periwinkle accent so it still pops against the near-black.
+   Green / red stay reserved for real device states only
+   (on / off / disconnected) in both themes.
+   Type      : Manrope (display) + Inter (body/UI) +
+               JetBrains Mono (technical "silkscreen" data
+               — channel IDs, readouts, status codes).
+   ===================================================== */
+
+:root,
+:root[data-theme="light"] {
+  --bg: #F2F3F5;
+  --surface: #FFFFFF;
+  --surface-soft: #F8F9FB;
+
+  --border: #E5E7EB;
+  --border-strong: #D8DBE0;
+
+  --ink: #14161A;
+  --ink-muted: #6B7280;
+  --ink-faint: #9AA1AC;
+
+  --accent: #3654F0;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #EDF0FE;
+
+  --on: #16A34A;
+  --on-soft: #E9F9EF;
+  --off: #9AA1AC;
+  --danger: #DC2626;
+
+  --chart-temp: #E8622C;
+  --chart-hum: #3654F0;
+  --chart-grid: rgba(20, 22, 26, 0.07);
+  --chart-label: #9AA1AC;
+
+  --actions-bg: rgba(242, 243, 245, 0.90);
+
+  --shadow-card: 0 1px 2px rgba(20, 22, 26, 0.04), 0 8px 24px -12px rgba(20, 22, 26, 0.10);
+  --shadow-pop: 0 10px 30px -10px rgba(54, 84, 240, 0.35);
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #121316;
+  --surface: #1B1C20;
+  --surface-soft: #202127;
+
+  --border: #2B2C32;
+  --border-strong: #3A3B42;
+
+  --ink: #F1F2F4;
+  --ink-muted: #9CA0AB;
+  --ink-faint: #6B6E78;
+
+  --accent: #8B93FF;
+  --accent-ink: #14161A;
+  --accent-soft: rgba(139, 147, 255, 0.14);
+
+  --on: #34D399;
+  --on-soft: rgba(52, 211, 153, 0.14);
+  --off: #5A5D66;
+  --danger: #F87171;
+
+  --chart-temp: #FF8A65;
+  --chart-hum: #8B93FF;
+  --chart-grid: rgba(255, 255, 255, 0.07);
+  --chart-label: #6B6E78;
+
+  --actions-bg: rgba(18, 19, 22, 0.88);
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.24), 0 10px 26px -12px rgba(0, 0, 0, 0.55);
+  --shadow-pop: 0 10px 30px -10px rgba(139, 147, 255, 0.35);
+
+  color-scheme: dark;
+}
+
+:root {
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+
+  --font-display: "Manrope", "Segoe UI", sans-serif;
+  --font-body: "Inter", "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+body {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.header,
+.connection,
+.sensor-card,
+.chart-card,
+.card,
+.chip,
+.status,
+.slider,
+.slider::before,
+.btn-off,
+.theme-toggle {
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  padding: 18px 16px 96px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible + .toggle__track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* =====================================================
+   HEADER
+   ===================================================== */
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+
+  border-radius: 12px;
+  background: var(--ink);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo svg {
+  width: 22px;
+  height: 22px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.subtitle {
+  font-family: var(--font-mono);
+  color: var(--ink-faint);
+  margin-top: 3px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.connection {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  padding: 7px 12px 7px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-card);
+
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.theme-toggle {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-card);
+
+  color: var(--ink-muted);
+  padding: 0;
+}
+
+.theme-toggle:active {
+  transform: scale(0.94);
+}
+
+.theme-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+.theme-toggle .icon-moon { display: none; }
+.theme-toggle .icon-sun { display: block; }
+
+[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
+[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--off);
+  flex-shrink: 0;
+}
+
+.dot.on {
+  background: var(--on);
+  box-shadow: 0 0 0 3px var(--on-soft);
+}
+
+.dot.off {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+/* =====================================================
+   EYEBROW / SILKSCREEN LABEL
+   Shared utility for the small mono technical labels
+   used across sensor, chart and relay cards.
+   ===================================================== */
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* =====================================================
+   SENSOR ROW
+   ===================================================== */
+
+.sensor {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.sensor-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: 16px 16px 14px;
+}
+
+.sensor-card .card-top {
+  margin-bottom: 14px;
+}
+
+.sensor-values > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.sensor-value {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.sensor-label {
+  color: var(--ink-faint);
+  font-size: 11px;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--ink-muted);
+  border: 1px solid var(--border);
+}
+
+/* =====================================================
+   CHART
+   ===================================================== */
+
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 16px 16px 12px;
+  margin-bottom: 22px;
+}
+
+.chart-card .card-top {
+  margin-bottom: 12px;
+}
+
+.legend-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-muted);
+  letter-spacing: 0.02em;
+}
+
+.legend::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--dot-color, var(--ink-faint));
+}
+
+.legend--temp::before { background: var(--chart-temp); }
+.legend--hum::before { background: var(--chart-hum); }
+
+.chart-card canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* =====================================================
+   SECTION HEADING (above relay grid)
+   ===================================================== */
+
+.section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 4px 2px 10px;
+}
+
+.section-heading h2 {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.section-heading .eyebrow {
+  color: var(--ink-faint);
+}
+
+/* =====================================================
+   RELAY GRID + CARD
+   ===================================================== */
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+@media (min-width: 460px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  box-shadow: var(--shadow-card);
+}
+
+.card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.relay-number {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+}
+
+.status {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--ink-faint);
+  border: 1px solid var(--border);
+}
+
+.status.on {
+  background: var(--on-soft);
+  color: var(--on);
+  border-color: transparent;
+}
+
+.relay-name {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.description {
+  color: var(--ink-muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+  margin-bottom: 18px;
+}
+
+.switch-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
+}
+
+.switch-container > span {
+  font-size: 12.5px;
+  color: var(--ink-muted);
+  font-weight: 500;
+}
+
+/* Rocker-style toggle: reads like a physical relay switch
+   rather than a generic iOS pill. */
+
+.switch {
+  position: relative;
+  width: 50px;
+  height: 30px;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.slider {
+  position: absolute;
+  inset: 0;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  transition: 0.2s ease;
+}
+
+.slider::before {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 22px;
+  left: 3px;
+  top: 3px;
+  background: #FFFFFF;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  box-shadow: 0 1px 2px rgba(20, 22, 26, 0.12);
+  transition: 0.2s ease;
+}
+
+input:checked + .slider {
+  background: var(--on);
+  border-color: var(--on);
+}
+
+input:checked + .slider::before {
+  transform: translateX(22px);
+  border-color: var(--on);
+}
+
+/* =====================================================
+   ACTION BAR
+   Inline on desktop, promoted to a fixed thumb-reach bar
+   on mobile for real one-handed use.
+   ===================================================== */
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+button {
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: transform 0.12s ease, opacity 0.12s ease, box-shadow 0.12s ease;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+.btn-on {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: var(--shadow-pop);
+}
+
+.btn-off {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border-strong);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.footer {
+  text-align: center;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  margin-top: 26px;
+}
+
+/* =====================================================
+   MOBILE
+   ===================================================== */
+
+@media (max-width: 600px) {
+
+  .actions {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+
+    margin: 0;
+    padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+    gap: 10px;
+
+    background: var(--actions-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border);
+  }
+
+  .title {
+    font-size: 18px;
+  }
+
+  .sensor-value {
+    font-size: 22px;
+  }
+
+  .card {
+    padding: 15px;
+  }
+}
+
+@media (min-width: 601px) {
+  body {
+    padding-bottom: 24px;
+  }
+}

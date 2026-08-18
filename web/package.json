@@ -1,0 +1,13 @@
+{
+  "name": "iot-relay-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Remote control web untuk ESP8266 relay (MQTT over WSS)",
+  "scripts": {
+    "build": "node scripts/build-config.js",
+    "config": "node scripts/build-config.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

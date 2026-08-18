@@ -1,0 +1,28 @@
+# PlatformIO
+.pio/
+build/
+*.o
+*.elf
+*.bin
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Node
+node_modules/
+npm-debug.log
+
+# =====================================================
+# RAHASIA - JANGAN PERNAH DI-COMMIT
+# =====================================================
+.env
+.env.*
+!.env.example
+src/secrets.h
+web/config.gen.js
