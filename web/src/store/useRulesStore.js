@@ -11,6 +11,27 @@ import CFG from "../config.js";
 
 let localIdCounter = 100;
 
+function normalizeRule(r) {
+  return {
+    id: typeof r.id === "number" ? r.id : 0,
+    name: typeof r.name === "string" ? r.name : "",
+    enabled: r.enabled !== false,
+    relays: Array.isArray(r.relays) ? r.relays : [],
+    type: ["time", "temp", "timer", "sched_temp"].includes(r.type)
+      ? r.type
+      : "time",
+    days: Array.isArray(r.days) ? r.days : [],
+    startMin: r.startMin || 0,
+    endMin: r.endMin || 0,
+    onSec: r.onSec || 0,
+    offSec: r.offSec || 0,
+    onValue: r.onValue || 0,
+    offValue: r.offValue || 0,
+    priority: r.priority || 0,
+    cooldownSec: r.cooldownSec || 0,
+  };
+}
+
 export const useRulesStore = create((set, get) => ({
 
   rules: [],
@@ -24,31 +45,37 @@ export const useRulesStore = create((set, get) => ({
   applyConfig: (data) => {
     const rules = Array.isArray(data.rules) ? data.rules : [];
 
+    // Naikkan counter id melewati id tertinggi milik perangkat supaya
+    // aturan baru tidak bertabrakan dengan aturan yang sudah ada.
+    const maxId = rules.reduce(
+      (m, r) => Math.max(m, typeof r.id === "number" ? r.id : 0),
+      0
+    );
+    if (maxId >= localIdCounter) {
+      localIdCounter = maxId + 1;
+    }
+
     set({
-      rules: rules.map((r) => ({
-        id: typeof r.id === "number" ? r.id : 0,
-        name: typeof r.name === "string" ? r.name : "",
-        enabled: r.enabled !== false,
-        relays: Array.isArray(r.relays) ? r.relays : [],
-        type: ["time", "temp", "timer", "sched_temp"].includes(r.type)
-          ? r.type
-          : "time",
-        days: Array.isArray(r.days) ? r.days : [],
-        startMin: r.startMin || 0,
-        endMin: r.endMin || 0,
-        onSec: r.onSec || 0,
-        offSec: r.offSec || 0,
-        onValue: r.onValue || 0,
-        offValue: r.offValue || 0,
-        priority: r.priority || 0,
-        cooldownSec: r.cooldownSec || 0,
-      })),
-      syncState: "idle",
+      rules: rules.map(normalizeRule),
       lastError: null,
     });
   },
 
+  // Konfirmasi sinkron berhasil (dipanggil router setelah applyConfig):
+  // membersihkan pending save & timeout.
   setPendingAction: (a) => set({ pendingAction: a }),
+
+  confirmSync: () => {
+    const s = get();
+    clearTimeout(s.timer);
+    set({ syncState: "idle", pendingAction: null, timer: null });
+  },
+
+  setSyncError: (msg) => {
+    const s = get();
+    clearTimeout(s.timer);
+    set({ syncState: "error", lastError: msg, pendingAction: null, timer: null });
+  },
 
   // ---- mutasi lokal (optimistic, langsung simpan) ----
 
@@ -121,16 +148,27 @@ export const useRulesStore = create((set, get) => ({
     const ok = publish(CFG.topicConfigSet, payload, 1);
 
     if (!ok) {
-      set({ syncState: "error", lastError: "MQTT belum terhubung" });
+      const prev = get().timer;
+      clearTimeout(prev);
+      set({
+        syncState: "error",
+        pendingAction: null,
+        lastError: "MQTT belum terhubung",
+        timer: null,
+      });
       return;
     }
 
     clearTimeout(s.timer);
 
     const timer = setTimeout(() => {
-      if (get().syncState === "saving") {
-        set({ syncState: "error", lastError: "Timeout menunggu balasan ESP" });
-        get()._clearTimer();
+      if (get().pendingAction === "save") {
+        set({
+          syncState: "error",
+          pendingAction: null,
+          lastError: "Timeout menunggu balasan ESP",
+          timer: null,
+        });
       }
     }, 9000);
 
@@ -150,9 +188,8 @@ export const useRulesStore = create((set, get) => ({
     clearTimeout(s.timer);
 
     const timer = setTimeout(() => {
-      if (get().syncState === "fetching") {
-        set({ syncState: "idle" });
-        get()._clearTimer();
+      if (get().pendingAction === null && get().syncState === "fetching") {
+        set({ syncState: "idle", timer: null });
       }
     }, 8000);
 

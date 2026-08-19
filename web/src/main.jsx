@@ -11,8 +11,6 @@ import { DEVICE_OFFLINE_AFTER_MS, DEVICE_CHECK_INTERVAL_MS } from "./config.js";
 startRouting();
 mqttConnect();
 
-useAppStore.getState().requestConfig();
-
 // Watchdog kehadiran perangkat: bila tidak ada pesan dari ESP selama
 // DEVICE_OFFLINE_AFTER_MS, semua fitur dikunci sampai perangkat kembali.
 const checkDevice = () => {

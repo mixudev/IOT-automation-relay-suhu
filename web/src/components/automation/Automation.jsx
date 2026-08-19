@@ -4,6 +4,16 @@ import { useRulesStore } from "../../store/useRulesStore.js";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Plus, RefreshCw, Zap, TriangleAlert } from "lucide-react";
 import RuleCard from "./RuleCard.jsx";
 import RuleEditor from "./RuleEditor.jsx";
@@ -29,6 +39,7 @@ export const emptyRule = () => ({
 export default function Automation() {
   const deviceOnline = useAppStore((s) => s.deviceOnline);
   const [editing, setEditing] = useState(null); // null | { idx, rule }
+  const [confirmRemove, setConfirmRemove] = useState(null); // null | idx
 
   const rules = useRulesStore((s) => s.rules);
   const syncState = useRulesStore((s) => s.syncState);
@@ -136,7 +147,7 @@ export default function Automation() {
                         rule={rule}
                         onEdit={() => openEdit(idx)}
                         onToggle={() => toggleRule(idx)}
-                        onRemove={() => removeRule(idx)}
+                        onRemove={() => setConfirmRemove(idx)}
                         onDup={() => dupRule(idx)}
                         disabled={!online}
                       />
@@ -157,6 +168,34 @@ export default function Automation() {
         onCancel={() => setEditing(null)}
         onSave={handleSave}
       />
+
+      <AlertDialog
+        open={confirmRemove !== null}
+        onOpenChange={(v) => !v && setConfirmRemove(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus aturan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Aturan{" "}
+              <b>{confirmRemove !== null ? rules[confirmRemove]?.name || "tanpa nama" : ""}</b>{" "}
+              akan dihapus dari perangkat.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (confirmRemove !== null) removeRule(confirmRemove);
+                setConfirmRemove(null);
+              }}
+            >
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

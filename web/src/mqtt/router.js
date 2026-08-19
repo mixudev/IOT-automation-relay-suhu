@@ -16,9 +16,9 @@ export function startRouting() {
     app.setConn(online ? "online" : "offline");
 
     if (online) {
-      // Minta config saat pertama konek (sinkron sumber kebenaran)
+      // Minta config saat pertama konek (sinkron sumber kebenaran).
+      // Cukup satu kali — fetch() sudah mengirim config/get.
       useRulesStore.getState().fetch();
-      app.requestConfig();
     }
   });
 
@@ -57,14 +57,17 @@ export function startRouting() {
 
       if (data.ok === true || Array.isArray(data.rules)) {
 
+        // Terapkan dulu, lalu konfirmasi sink tanpa menyentuh state
+        // syncState/pendingAction (applyConfig hanya mengisi data).
         rules.applyConfig(data);
 
-        if (rules.pendingAction === "save") {
+        const wasSaveAck = rules.pendingAction === "save";
 
+        if (wasSaveAck) {
           toast.success("Aturan tersimpan di perangkat");
         }
 
-        rules.setPendingAction(null);
+        rules.confirmSync();
 
       } else {
 
@@ -74,7 +77,9 @@ export function startRouting() {
             : "Gagal sinkronkan konfigurasi"
         );
 
-        rules.setPendingAction(null);
+        rules.setSyncError(
+          data.error || "Gagal sinkronkan konfigurasi"
+        );
       }
     }
 

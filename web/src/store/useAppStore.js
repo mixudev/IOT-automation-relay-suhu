@@ -1,8 +1,39 @@
 import { create } from "zustand";
 import CFG, { RELAY_COUNT } from "../config.js";
 import { publish } from "../mqtt/client.js";
+import { toast } from "sonner";
 
 const HISTORY_MAX = 120;
+const HISTORY_KEY = "iot.relay.history.v1";
+
+// Muat riwayat yang dipersist di browser (anti-hilang saat refresh).
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter(
+        (p) =>
+          p &&
+          typeof p.ts === "number" &&
+          typeof p.temp === "number" &&
+          typeof p.hum === "number"
+      )
+      .slice(-HISTORY_MAX);
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(history) {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  } catch {
+    // kuota penuh / mode privat — abaikan saja
+  }
+}
 
 // Catat pembacaan sensor ke bucket per jam (nilai rata-rata).
 // Tidak menumpuk: hanya 1 titik per jam, maksimum HISTORY_MAX
@@ -52,7 +83,7 @@ export const useAppStore = create((set, get) => ({
   rulesActive: 0,
 
   events: [],       // feed aktivitas (terbaru di depan)
-  history: [],      // titik sensor rata-rata per jam {ts, temp, hum, n}
+  history: loadHistory(), // titik sensor rata-rata per jam {ts, temp, hum, n}
   lastUpdate: null,
 
   // ---- status internal ----
@@ -77,12 +108,14 @@ export const useAppStore = create((set, get) => ({
 
     const next = {
       relayStates,
-      relayModes: Array.isArray(data.relayModes)
-        ? data.relayModes
-        : s.relayModes,
-      relayNames: Array.isArray(data.relayNames)
-        ? data.relayNames
-        : s.relayNames,
+      relayModes:
+        Array.isArray(data.relayModes) && data.relayModes.length === RELAY_COUNT
+          ? data.relayModes
+          : s.relayModes,
+      relayNames:
+        Array.isArray(data.relayNames) && data.relayNames.length === RELAY_COUNT
+          ? data.relayNames
+          : s.relayNames,
       temperature:
         typeof data.temperature === "number"
           ? data.temperature
@@ -140,51 +173,97 @@ export const useAppStore = create((set, get) => ({
       deviceOnline: true,
     })),
 
-  clearHistory: () =>
-    set({ history: [] }),
-
-  clearEvents: () => set({ events: [] }),
-
-  // ---- names/modes dari local cache ----
-
-  setRelayNames: (names) =>
-    set({ relayNames: names }),
-
-  setRelayModes: (modes) =>
-    set({ relayModes: modes }),
-
   // ---- ACTION MQTT ----
+  // Semua aksi memeriksa return publish() dan memberi umpan balik
+  // yang jujur ke user; relay di-update optimistically supaya UI
+  // terasa responsif (status MQTT berikutnya akan mengonfirmasi).
 
   requestConfig: () => {
     publish(CFG.topicConfigGet, "{}", 1);
   },
 
   manualRelay: (number, on) => {
-    publish(CFG.topicCommand, {
+    const s = get();
+    const ok = publish(CFG.topicCommand, {
       relay: number,
       state: on ? "on" : "off",
     });
+
+    if (!ok) {
+      toast.error("Tidak terhubung ke broker — perintah tidak terkirim");
+      return false;
+    }
+
+    const relayStates = s.relayStates.slice();
+    relayStates[number - 1] = on;
+    set({ relayStates });
+
+    return true;
   },
 
   setAll: (on) => {
-    publish(CFG.topicCommand, { all: on ? "on" : "off" });
+    const ok = publish(CFG.topicCommand, { all: on ? "on" : "off" });
+    if (!ok) {
+      toast.error("Tidak terhubung ke broker — perintah tidak terkirim");
+      return false;
+    }
+    const relayStates = Array(RELAY_COUNT).fill(on);
+    set({ relayStates });
+    return true;
   },
 
   setMode: (number, auto) => {
-    publish(CFG.topicCommand, {
+    const s = get();
+    const ok = publish(CFG.topicCommand, {
       relay: number,
       mode: auto ? "auto" : "manual",
     });
+
+    if (!ok) {
+      toast.error("Tidak terhubung ke broker — perintah tidak terkirim");
+      return false;
+    }
+
+    const relayModes = s.relayModes.slice();
+    relayModes[number - 1] = auto;
+    set({ relayModes });
+
+    return true;
   },
 
   setRelayName: (number, name) => {
-    publish(CFG.topicCommand, {
+    const ok = publish(CFG.topicCommand, {
       relay: number,
       name,
     });
+
+    if (!ok) {
+      toast.error("Tidak terhubung ke broker — nama tidak terkirim");
+      return false;
+    }
+
+    const s = get();
+    const relayNames = s.relayNames.slice();
+    relayNames[number - 1] = name;
+    set({ relayNames });
+
+    return true;
   },
 
   reboot: () => {
-    publish(CFG.topicCommand, { reboot: true });
+    const ok = publish(CFG.topicCommand, { reboot: true });
+    if (!ok) {
+      toast.error("Tidak terhubung ke broker — perintah tidak terkirim");
+      return false;
+    }
+    return true;
   },
 }));
+
+// Persist riwayat sensor ke localStorage setiap kali berubah —
+// grafik tidak hilang saat browser di-refresh.
+useAppStore.subscribe((s, prev) => {
+  if (s.history !== prev.history) {
+    saveHistory(s.history);
+  }
+});

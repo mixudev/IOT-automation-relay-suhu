@@ -42,12 +42,17 @@ const UNITS = ["detik", "menit", "jam"];
 function DurationField({ label, seconds, onChange }) {
   const [unit, setUnit] = useState("menit");
   const [value, setValue] = useState("10");
+  const [editing, setEditing] = useState(false);
 
+  // Sinkronisasi dari props HANYA saat tidak sedang diketik — kalau
+  // tidak, mengosongkan field langsung dipaksa balik oleh prop ulang
+  // dan user tidak bisa mengetik angka baru.
   useEffect(() => {
+    if (editing) return;
     const p = secToParts(seconds);
     setUnit(p.unit);
     setValue(String(p.val));
-  }, [seconds]);
+  }, [seconds, editing]);
 
   const commit = (v, u) => onChange(partsToSec(v, u));
 
@@ -59,9 +64,13 @@ function DurationField({ label, seconds, onChange }) {
           type="number"
           min={1}
           value={value}
+          onFocus={() => setEditing(true)}
+          onBlur={() => setEditing(false)}
           onChange={(e) => {
-            setValue(e.target.value);
-            commit(e.target.value, unit);
+            const v = e.target.value;
+            setValue(v);
+            if (v === "") return; // biarkan kosong saat mengetik
+            commit(v, unit);
           }}
           className="flex-1"
         />

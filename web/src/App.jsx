@@ -95,22 +95,22 @@ export default function App() {
           </div>
           <div>
             <p className="text-sm font-semibold leading-tight">Relay Control</p>
-            <p className="text-[11px] leading-tight text-muted-foreground">
-              ESP8266 · v2.0.0
+            <p className="text-xs leading-tight text-muted-foreground">
+              ESP8266 · v2.1.0
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           {status === "online" && (
-            <span className="rounded-full border bg-muted px-2 py-1 font-mono text-[11px] text-muted-foreground">
+            <span className="rounded-full border bg-muted px-2 py-1 font-mono text-xs text-muted-foreground">
               {time || "--:--"}
             </span>
           )}
           <span
             title={st.title}
             className={
-              "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium " +
+              "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium " +
               st.cls
             }
           >
@@ -156,7 +156,7 @@ export default function App() {
               key={item.id}
               onClick={() => setPage(item.id)}
               className={
-                "flex flex-1 flex-col items-center gap-0.5 py-2 text-[10.5px] font-medium transition-colors " +
+                "flex flex-1 flex-col items-center gap-0.5 py-2 text-xs font-medium transition-colors " +
                 (active ? "text-primary" : "text-muted-foreground")
               }
             >
