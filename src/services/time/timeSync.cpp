@@ -1,5 +1,5 @@
 #include "timeSync.h"
-#include "config.h"
+#include "config/config.h"
 #include <ESP8266WiFi.h>
 #include <time.h>
 
@@ -49,7 +49,7 @@ void timeSyncLoop() {
     synced = true;
 
     struct tm* ti = localtime(&now);
-    char buf[32];
+    char buf[40];
     snprintf(buf, sizeof(buf),
       "%04d-%02d-%02d %02d:%02d:%02d",
       ti->tm_year + 1900, ti->tm_mon + 1, ti->tm_mday,

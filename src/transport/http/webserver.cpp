@@ -1,10 +1,10 @@
 #include "webserver.h"
 #include "webpage.h"
-#include "config.h"
-#include "relay.h"
-#include "sensor.h"
-#include "status.h"
-#include "automation.h"
+#include "config/config.h"
+#include "hardware/relay/relay.h"
+#include "hardware/sensor/sensor.h"
+#include "serialization/status/status.h"
+#include "services/automation/automation.h"
 #include <ESP8266WebServer.h>
 
 ESP8266WebServer server(80);
@@ -134,6 +134,20 @@ void handleNotFound() {
         relay >= 1 &&
         relay <= RELAY_COUNT
       ) {
+
+        if (
+          action != "on" &&
+          action != "off"
+        ) {
+
+          server.send(
+            404,
+            "text/plain",
+            "Not Found"
+          );
+
+          return;
+        }
 
         bool state =
           action == "on";

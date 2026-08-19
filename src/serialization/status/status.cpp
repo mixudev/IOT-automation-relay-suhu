@@ -1,9 +1,9 @@
 #include "status.h"
-#include "config.h"
-#include "relay.h"
-#include "sensor.h"
-#include "automation.h"
-#include "timeSync.h"
+#include "config/config.h"
+#include "hardware/relay/relay.h"
+#include "hardware/sensor/sensor.h"
+#include "services/automation/automation.h"
+#include "services/time/timeSync.h"
 #include <ArduinoJson.h>
 
 // =====================================================
@@ -24,70 +24,42 @@ static const char* ruleTypeStr(uint8_t type) {
 
 String buildStatusJSON() {
 
-  String json = "{";
+  JsonDocument doc; // v7: heap-backed
 
-  // Relay states
+  // Relay states (kunci relay1..relay4, model lama demi kompatibilitas web)
+  char key[8];
+
   for (uint8_t i = 0; i < RELAY_COUNT; i++) {
 
-    json += "\"relay";
-    json += String(i + 1);
-    json += "\":";
-    json += getRelayState(i) ? "true" : "false";
+    snprintf(key, sizeof(key), "relay%d", i + 1);
 
-    if (i < RELAY_COUNT - 1) {
-      json += ",";
-    }
+    doc[key] = getRelayState(i);
   }
 
   // Relay modes (AUTO/MANUAL)
-  json += ",\"relayModes\":[";
+  JsonArray modes = doc["relayModes"].to<JsonArray>();
 
   for (uint8_t i = 0; i < RELAY_COUNT; i++) {
-    json += automationGetRelayMode(i) ? "true" : "false";
-
-    if (i < RELAY_COUNT - 1) {
-      json += ",";
-    }
+    modes.add(automationGetRelayMode(i));
   }
-
-  json += "]";
 
   // Relay names
-  json += ",\"relayNames\":[";
+  JsonArray names = doc["relayNames"].to<JsonArray>();
 
   for (uint8_t i = 0; i < RELAY_COUNT; i++) {
-
-    json += "\"";
-    json += automationGetRelayName(i);
-    json += "\"";
-
-    if (i < RELAY_COUNT - 1) {
-      json += ",";
-    }
+    names.add(automationGetRelayName(i));
   }
-
-  json += "]";
 
   // Sensor
-  json += ",\"temperature\":";
-
   if (sensorIsValid()) {
-    json += String(getTemperature());
+    doc["temperature"] = getTemperature();
+    doc["humidity"] = getHumidity();
   } else {
-    json += "null";
-  }
-
-  json += ",\"humidity\":";
-
-  if (sensorIsValid()) {
-    json += String(getHumidity());
-  } else {
-    json += "null";
+    doc["temperature"] = nullptr;
+    doc["humidity"] = nullptr;
   }
 
   // Waktu NTP
-  json += ",\"time\":";
-
   if (timeIsSynced()) {
 
     uint16_t min = getLocalMinuteOfDay();
@@ -101,24 +73,20 @@ String buildStatusJSON() {
       (unsigned)(min % 60)
     );
 
-    json += "\"";
-    json += timeBuf;
-    json += "\"";
+    doc["time"] = timeBuf;
 
   } else {
 
-    json += "null";
+    doc["time"] = nullptr;
   }
 
-  json += ",\"ntpSynced\":";
-  json += timeIsSynced() ? "true" : "false";
+  doc["ntpSynced"] = timeIsSynced();
+  doc["rulesActive"] = automationGetRuleCount();
 
-  json += ",\"rulesActive\":";
-  json += String(automationGetRuleCount());
+  String out;
+  serializeJson(doc, out);
 
-  json += "}";
-
-  return json;
+  return out;
 }
 
 String buildSensorJSON() {

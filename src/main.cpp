@@ -1,13 +1,13 @@
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
 
-#include "config.h"
-#include "relay.h"
-#include "sensor.h"
-#include "webserver.h"
-#include "mqttclient.h"
-#include "automation.h"
-#include "timeSync.h"
+#include "config/config.h"
+#include "hardware/relay/relay.h"
+#include "hardware/sensor/sensor.h"
+#include "services/wifi/wifi.h"
+#include "services/time/timeSync.h"
+#include "services/automation/automation.h"
+#include "transport/http/webserver.h"
+#include "transport/mqtt/mqttclient.h"
 
 // =====================================================
 // MAIN: WIRING
@@ -43,95 +43,19 @@ void setup() {
   // Inisialisasi relay (semua OFF saat boot)
   initRelays();
 
-  // Inisialisasi sensor DHT11
+  // Inisialisasi sensor DHT22
   initSensor();
 
-  // -----------------------------------------------
-  // WiFi
-  // -----------------------------------------------
+  // WiFi (STA + IP statis, blocking sampai timeout)
+  initWifi();
 
-  if (ENABLE_MODEM_SLEEP) {
-    WiFi.setSleepMode(
-      WIFI_MODEM_SLEEP
-    );
-  }
-
-  WiFi.mode(
-    WIFI_STA
-  );
-
-  if (!WiFi.config(
-        STATIC_IP,
-        GATEWAY,
-        SUBNET,
-        DNS
-      )) {
-
-    Serial.println(
-      "Gagal konfigurasi IP statis"
-    );
-  }
-
-  WiFi.begin(
-    WIFI_SSID,
-    WIFI_PASSWORD
-  );
-
-  Serial.print(
-    "Connecting to WiFi"
-  );
-
-  // Timeout supaya tidak hang selamanya saat WiFi mati
-  uint32_t wifiStart =
-    millis();
-
-  while (
-    WiFi.status() != WL_CONNECTED &&
-    millis() - wifiStart <
-      WIFI_CONNECT_TIMEOUT_MS
-  ) {
-
-    delay(500);
-
-    Serial.print(".");
-  }
-
-  Serial.println();
-
-  if (
-    WiFi.status() == WL_CONNECTED
-  ) {
-
-    Serial.println(
-      "WiFi connected!"
-    );
-
-    Serial.print(
-      "IP Address: "
-    );
-
-    Serial.println(
-      WiFi.localIP()
-    );
-
-  } else {
-
-    Serial.println(
-      "[WARN] WiFi tidak terhubung. "
-      "Akan retry otomatis via MQTT loop."
-    );
-  }
-
-  // -----------------------------------------------
-  // Web server
-  // -----------------------------------------------
-
+  // Web server lokal
   initWebServer();
 
   // MQTT untuk kontrol jarak jauh
   initMQTT();
 
-  // Mesin automation (aturan jadwal / suhu / kelembapan)
+  // Mesin automation (aturan jadwal / suhu / timer)
   automationInit();
 
   // Sinkronisasi waktu NTP (untuk aturan berbasis jadwal)
@@ -149,6 +73,8 @@ void setup() {
 void loop() {
 
   handleWebClient();
+
+  wifiLoop();
 
   updateSensor();
 

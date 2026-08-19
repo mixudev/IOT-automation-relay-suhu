@@ -1,10 +1,11 @@
 #include "mqttclient.h"
-#include "config.h"
-#include "relay.h"
-#include "sensor.h"
-#include "status.h"
-#include "automation.h"
-#include "timeSync.h"
+#include "config/config.h"
+#include "hardware/relay/relay.h"
+#include "hardware/sensor/sensor.h"
+#include "serialization/status/status.h"
+#include "services/automation/automation.h"
+#include "services/time/timeSync.h"
+#include "services/wifi/wifi.h"
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
@@ -44,6 +45,10 @@ uint32_t lastMqttReconnect = 0;
 const uint32_t MQTT_RECONNECT_MS = 5000;
 
 uint8_t lastRelayBits = 0xFF; // dipaksa publish yang pertama
+
+// Buffer aturan statis (bukan di stack) untuk memproses config/set.
+// Aman karena handler berjalan single-threaded di main loop.
+static AutomationRule cfgRules[MAX_RULES];
 
 uint8_t readRelayBits() {
 
@@ -149,16 +154,18 @@ void publishConfigAck(bool ok, const char* error) {
 // HANDLER CONFIG (JSON array aturan)
 // =====================================================
 
-void handleConfigSet(String msg) {
+void handleConfigSet(const char* payload, size_t length) {
 
-  if (msg.length() == 0 || msg.length() > 6000) {
+  if (length == 0 || length > 6000) {
     Serial.println("[MQTT] config/set terlalu besar / kosong");
     return;
   }
 
   JsonDocument doc;
 
-  DeserializationError err = deserializeJson(doc, msg);
+  // Deserialisasi langsung dari buffer MQTT (tanpa copy String tambahan)
+  // — hemat ~6KB heap pada jalur paling memakan memori.
+  DeserializationError err = deserializeJson(doc, payload, length);
 
   if (err) {
 
@@ -177,7 +184,6 @@ void handleConfigSet(String msg) {
 
   JsonArray arr = doc["rules"].as<JsonArray>();
 
-  AutomationRule rules[MAX_RULES];
   uint8_t count = 0;
 
   for (JsonVariant v : arr) {
@@ -188,12 +194,32 @@ void handleConfigSet(String msg) {
 
     JsonObject r = v.as<JsonObject>();
 
-    AutomationRule& rule = rules[count];
+    AutomationRule& rule = cfgRules[count];
     memset(&rule, 0, sizeof(rule));
 
     rule.id = r["id"] | count;
+
+    // Tolak ID duplikat di dalam satu set aturan.
+    for (uint8_t k = 0; k < count; k++) {
+
+      if (cfgRules[k].id == rule.id) {
+
+        publishConfigAck(false, "duplicate_rule_id");
+        return;
+      }
+    }
+
     rule.enabled = r["enabled"] | true;
-    rule.priority = r["priority"] | 0;
+
+    int pr = r["priority"] | 0;
+
+    if (pr < 0 || pr > 255) {
+
+      publishConfigAck(false, "invalid_priority");
+      return;
+    }
+
+    rule.priority = (uint8_t)pr;
     rule.cooldownSec = r["cooldownSec"] | 0;
 
     const char* name = r["name"] | "";
@@ -251,10 +277,43 @@ void handleConfigSet(String msg) {
 
     rule.days = dayMask;
 
-    rule.startMin = r["startMin"] | 0;
-    rule.endMin = r["endMin"] | 0;
-    rule.onValue = r["onValue"] | 0;
-    rule.offValue = r["offValue"] | 0;
+    // Rentang jadwal: clamp ke 0..1439. startMin==endMin = nonaktif.
+    long startMin = r["startMin"] | 0;
+    long endMin = r["endMin"] | 0;
+
+    if (startMin < 0 || startMin > 1439 || endMin < 0 || endMin > 1439) {
+
+      publishConfigAck(false, "invalid_time_range");
+      return;
+    }
+
+    rule.startMin = (uint16_t)startMin;
+    rule.endMin = (uint16_t)endMin;
+
+    // Ambang sensor: pastikan tidak meluap dari int16 dan hysteresis
+    // valid (on > off). Tanpa ini, ambang terbalik/sama membuat relay
+    // tidak pernah menyala secara diam-diam.
+    if (rule.type == RULE_TEMP || rule.type == RULE_HUM || rule.type == RULE_SCHED_TEMP) {
+
+      long onV = r["onValue"] | 0;
+      long offV = r["offValue"] | 0;
+
+      if (onV < -32768 || onV > 32767 || offV < -32768 || offV > 32767 || onV <= offV) {
+
+        publishConfigAck(false, "invalid_threshold");
+        return;
+      }
+
+      rule.onValue = (int16_t)onV;
+      rule.offValue = (int16_t)offV;
+    }
+
+    // Aturan jadwal wajib punya minimal satu hari aktif.
+    if ((rule.type == RULE_TIME || rule.type == RULE_SCHED_TEMP) && dayMask == 0) {
+
+      publishConfigAck(false, "no_days");
+      return;
+    }
 
     // Timer: durasi ON/OFF (detik). Fase mulai saat aturan disimpan.
     rule.onSec = r["onSec"] | 0;
@@ -276,7 +335,7 @@ void handleConfigSet(String msg) {
   Serial.print(count);
   Serial.println(" aturan (config/set)");
 
-  if (automationSetRules(rules, count)) {
+  if (automationSetRules(cfgRules, count)) {
 
     publishConfigAck(true, nullptr);
 
@@ -297,7 +356,7 @@ void handleCommand(String msg) {
   // Batasi ukuran payload (anti-DoS). Perintah sederhana.
   if (
     msg.length() == 0 ||
-    msg.length() > 128
+    msg.length() > 256
   ) {
 
     Serial.println(
@@ -307,7 +366,7 @@ void handleCommand(String msg) {
     return;
   }
 
-  // Tolak payload ambigu (mengandung on DAN off)
+  // Tolak payload ambigu (mengandung on DAN off sekaligus).
   bool hasOn =
     (msg.indexOf("\"on\"") >= 0);
   bool hasOff =
@@ -322,8 +381,23 @@ void handleCommand(String msg) {
     return;
   }
 
+  // Parse JSON secara ketat — bukan scan substring. Nama relay
+  // berisi kata "all"/"mode"/"reboot" tidak lagi salah diartikan.
+  JsonDocument doc;
+
+  DeserializationError err =
+    deserializeJson(doc, msg);
+
+  if (err) {
+
+    Serial.print("[MQTT] JSON command invalid: ");
+    Serial.println(err.c_str());
+
+    return;
+  }
+
   // REBOOT
-  if (msg.indexOf("\"reboot\"") >= 0) {
+  if (doc["reboot"].as<bool>()) {
 
     publishStatus();
 
@@ -335,144 +409,94 @@ void handleCommand(String msg) {
     return;
   }
 
-  // RELAY MODE: {"relay":N,"mode":"auto"|"manual"}
-  if (msg.indexOf("\"mode\"") >= 0) {
-
-    int idx = msg.indexOf("\"relay\"");
-
-    if (idx >= 0) {
-
-      int relay = 0;
-      int pos = msg.indexOf(':', idx) + 1;
-
-      while (pos < (int)msg.length() && isDigit(msg.charAt(pos))) {
-        relay = relay * 10 + (msg.charAt(pos) - '0');
-        pos++;
-      }
-
-      bool autoMode = msg.indexOf("\"auto\"") >= 0;
-
-      if (relay >= 1 && relay <= RELAY_COUNT) {
-
-        automationSetRelayMode(relay - 1, autoMode);
-        publishStatus();
-      }
-    }
-
-    return;
-  }
-
-  // RELAY NAME: {"relay":N,"name":"..."}
-  if (msg.indexOf("\"name\"") >= 0) {
-
-    int idx = msg.indexOf("\"relay\"");
-
-    if (idx >= 0) {
-
-      int relay = 0;
-      int pos = msg.indexOf(':', idx) + 1;
-
-      while (pos < (int)msg.length() && isDigit(msg.charAt(pos))) {
-        relay = relay * 10 + (msg.charAt(pos) - '0');
-        pos++;
-      }
-
-      int nameStart = msg.indexOf(':', msg.indexOf("\"name\"")) + 1;
-
-      int q1 = msg.indexOf('"', nameStart);
-
-      int q2 = (q1 >= 0) ? msg.indexOf('"', q1 + 1) : -1;
-
-      if (relay >= 1 && relay <= RELAY_COUNT && q1 >= 0 && q2 > q1) {
-
-        String name = msg.substring(q1 + 1, q2);
-
-        if (name.length() > 0) {
-
-          automationSetRelayName(relay - 1, name.c_str());
-          publishStatus();
-        }
-      }
-    }
-
-    return;
-  }
-
   // ALL ON / ALL OFF
-  if (msg.indexOf("\"all\"") >= 0) {
+  const char* all = doc["all"] | "";
+
+  if (all[0] != '\0') {
+
+    if (
+      strcmp(all, "on") != 0 &&
+      strcmp(all, "off") != 0
+    ) {
+      return;
+    }
+
+    bool state = (strcmp(all, "on") == 0);
 
     // Kontrol manual -> ambil alih mode MANUAL
     for (uint8_t i = 0; i < RELAY_COUNT; i++) {
       automationSetRelayMode(i, false);
     }
 
-    setAllRelays(hasOn);
+    setAllRelays(state);
 
     for (uint8_t i = 0; i < RELAY_COUNT; i++) {
-      publishEvent(i, hasOn, "manual", 0, nullptr);
+      publishEvent(i, state, "manual", 0, nullptr);
     }
 
     return;
   }
 
-  // SINGLE RELAY: {"relay":N,"state":"on|off"}
-  int idx =
-    msg.indexOf("\"relay\"");
+  // Relay-specific: mode / nama / state
+  int relay = doc["relay"].as<int>();
 
-  if (idx >= 0) {
+  if (relay < 1 || relay > RELAY_COUNT) {
 
-    int colon =
-      msg.indexOf(
-        ':',
-        idx
-      );
+    Serial.println("[MQTT] Perintah relay tidak valid");
 
-    if (colon > 0) {
+    return;
+  }
 
-      int value = 0;
-      int pos = colon + 1;
-      bool digitSeen = false;
+  const char* mode = doc["mode"] | "";
 
-      while (
-        pos < (int)msg.length() &&
-        isDigit(msg.charAt(pos))
-      ) {
+  if (mode[0] != '\0') {
 
-        value =
-          value * 10 +
-          (msg.charAt(pos) - '0');
-
-        pos++;
-
-        digitSeen = true;
-
-        if (value > RELAY_COUNT) {
-          break;
-        }
-      }
-
-      if (
-        digitSeen &&
-        value >= 1 &&
-        value <= RELAY_COUNT
-      ) {
-
-        // Ambil alih mode MANUAL saat dikontrol manual
-        automationSetRelayMode(value - 1, false);
-
-        setRelay(
-          value - 1,
-          hasOn
-        );
-
-        publishEvent(value - 1, hasOn, "manual", 0, nullptr);
-      } else {
-
-        Serial.println(
-          "[MQTT] Perintah relay tidak valid"
-        );
-      }
+    if (
+      strcmp(mode, "auto") != 0 &&
+      strcmp(mode, "manual") != 0
+    ) {
+      return;
     }
+
+    automationSetRelayMode(
+      relay - 1,
+      strcmp(mode, "auto") == 0
+    );
+
+    publishStatus();
+    return;
+  }
+
+  const char* name = doc["name"] | "";
+
+  if (name[0] != '\0') {
+
+    automationSetRelayName(relay - 1, name);
+
+    publishStatus();
+    return;
+  }
+
+  const char* state = doc["state"] | "";
+
+  if (state[0] != '\0') {
+
+    if (
+      strcmp(state, "on") != 0 &&
+      strcmp(state, "off") != 0
+    ) {
+      return;
+    }
+
+    bool on = (strcmp(state, "on") == 0);
+
+    // Ambil alih mode MANUAL saat dikontrol manual
+    automationSetRelayMode(relay - 1, false);
+
+    setRelay(relay - 1, on);
+
+    publishEvent(relay - 1, on, "manual", 0, nullptr);
+    return;
   }
 }
 
@@ -486,25 +510,28 @@ void mqttCallback(
   unsigned int length
 ) {
 
-  String msg;
-
-  for (
-    unsigned int i = 0;
-    i < length;
-    i++
-  ) {
-    msg += (char)payload[i];
-  }
-
   String t = String(topic);
 
   if (t == TOPIC_COMMAND) {
+
+    // Perintah kecil (max 256B); copy ke String aman.
+    String msg;
+
+    for (
+      unsigned int i = 0;
+      i < length;
+      i++
+    ) {
+      msg += (char)payload[i];
+    }
 
     handleCommand(msg);
 
   } else if (t == TOPIC_CONFIG_SET) {
 
-    handleConfigSet(msg);
+    // config/set bisa ~6KB: parse langsung dari buffer MQTT
+    // tanpa menyalin ke String tambahan (hemat heap).
+    handleConfigSet((const char*)payload, length);
 
   } else if (t == TOPIC_CONFIG_GET) {
 
@@ -572,9 +599,9 @@ void connectMQTT() {
       " connected!"
     );
 
-    mqtt.subscribe(TOPIC_COMMAND.c_str());
-    mqtt.subscribe(TOPIC_CONFIG_SET.c_str());
-    mqtt.subscribe(TOPIC_CONFIG_GET.c_str());
+    mqtt.subscribe(TOPIC_COMMAND.c_str(), 1);
+    mqtt.subscribe(TOPIC_CONFIG_SET.c_str(), 1);
+    mqtt.subscribe(TOPIC_CONFIG_GET.c_str(), 1);
 
     // Kirim status saat pertama konek
     lastRelayBits = readRelayBits();
@@ -606,7 +633,9 @@ void initMQTT() {
   );
 
   // Buffer lebih besar untuk payload config JSON (max ~6KB).
-  mqtt.setBufferSize(6144);
+  if (!mqtt.setBufferSize(6144)) {
+    Serial.println("[MQTT] Gagal alokasi buffer 6KB — config/set besar bisa terpotong");
+  }
 
   mqtt.setCallback(
     mqttCallback
@@ -620,9 +649,7 @@ void initMQTT() {
 
 void mqttLoop() {
 
-  if (
-    WiFi.status() != WL_CONNECTED
-  ) {
+  if (!wifiIsReady()) {
     return;
   }
 

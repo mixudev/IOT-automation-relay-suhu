@@ -1,5 +1,5 @@
 #include "relay.h"
-#include "config.h"
+#include "config/config.h"
 
 bool relayState[RELAY_COUNT];
 

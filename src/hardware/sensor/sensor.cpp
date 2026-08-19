@@ -1,5 +1,5 @@
 #include "sensor.h"
-#include "config.h"
+#include "config/config.h"
 #include <DHT.h>
 
 #define DHT_TYPE DHT22
@@ -73,7 +73,7 @@ void updateSensor() {
   float t = dht.readTemperature();
   float h = dht.readHumidity();
 
-  // Batas rentang masuk akal DHT11.
+  // Batas rentang masuk akal DHT22.
   // Nilai di luar ini (termasuk NaN) = bacaan rusak, dibuang.
   if (
     isnan(t) ||

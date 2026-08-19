@@ -492,7 +492,7 @@ button:hover {
         </span>
 
         <span class="status">
-          DHT11
+          DHT22
         </span>
 
       </div>
@@ -983,6 +983,13 @@ async function loadStatus() {
 
 loadStatus();
 
+// Poll status berkala supaya perubahan dari automation/MQTT tampil
+// tanpa perlu reload halaman.
+setInterval(
+  loadStatus,
+  5000
+);
+
 
 // =====================================================
 // SENSOR & GRAFIK
@@ -1134,12 +1141,12 @@ function drawChart() {
     ctx.stroke();
   }
 
-  // Suhu : 0..50°C (normal)
+  // Suhu : 0..60°C (rentang valid DHT22)
   // Hum  : 0..100% (invert = pakai skala dari bawah)
   drawLine(
     tempHistory,
     "#4ade80",
-    50,
+    60,
     false
   );
 

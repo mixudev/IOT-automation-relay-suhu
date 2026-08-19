@@ -90,8 +90,10 @@ const uint32_t DHT_INTERVAL_MS = 2000;
 // broker MQTT. Perintah dikirim lewat topik /command,
 // status & sensor dipublish ESP ke /status dan /sensor.
 //
-// Broker publik gratis (EMQX) default. Untuk produksi
-// sebaiknya pakai broker sendiri (mis. HiveMQ Cloud).
+// Broker MQTT (HiveMQ Cloud serverless) — kredensial dari .env.
+// Alur: ESP8266 + Web (Vercel) sama-sama terhubung ke broker
+// MQTT. Perintah dikirim lewat topik /command, status & sensor
+// dipublish ESP ke /status dan /sensor.
 
 const char* const MQTT_HOST =
   SECRET_MQTT_HOST;              // TLS MQTT (HiveMQ Cloud)
@@ -137,6 +139,12 @@ const bool ENABLE_MODEM_SLEEP = true;
 // Timeout koneksi WiFi (ms) sebelum ESP melanjutkan boot.
 const uint32_t WIFI_CONNECT_TIMEOUT_MS = 20000;
 
+// Jeda antar percobaan reconnect (saat WiFi putus setelah boot).
+const uint32_t WIFI_RECONNECT_MS = 15000;
+
+// Batas waktu tunggu satu kali percobaan reconnect.
+const uint32_t WIFI_RECONNECT_TIMEOUT_MS = 10000;
+
 // =====================================================
 // AUTOMATION (MESIN ATURAN)
 // =====================================================
@@ -162,6 +170,11 @@ const uint32_t AUTO_EVAL_INTERVAL_MS = 1000;
 // Jeda default antar-switch per relay (detik) bila aturan
 // tidak men-set cooldown sendiri. Melindungi relay dari churn.
 const uint16_t AUTO_DEFAULT_COOLDOWN_SEC = 60;
+
+// Jeda minimum state relay harus stabil (ms) sebelum ditulis ke
+// LittleFS. Mencegah flash-wear akibat siklus timer cepat; manual
+// control & timer lambat tetap tersimpan setelah stabil.
+const uint32_t AUTO_PERSIST_MIN_MS = 30000;
 
 // =====================================================
 // WAKTU (NTP)

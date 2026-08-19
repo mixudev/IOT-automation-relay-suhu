@@ -1,7 +1,7 @@
 #include "automation.h"
-#include "relay.h"
-#include "sensor.h"
-#include "timeSync.h"
+#include "hardware/relay/relay.h"
+#include "hardware/sensor/sensor.h"
+#include "services/time/timeSync.h"
 #include <LittleFS.h>
 #include <stddef.h>
 
@@ -43,13 +43,18 @@ static uint8_t relayModes = 0xFF;   // default semua AUTO
 static bool ruleActive[MAX_RULES];  // state hysteresis per aturan
 static uint32_t lastSwitchMs[RELAY_COUNT]; // anti-churn per relay
 static uint32_t lastEvalMs = 0;
-static uint8_t lastPersistedBits = 0; // state relay terakhir di file
-static AutomationEventCb eventCb = nullptr;
+static uint8_t lastPersistedBits = 0;  // state relay terakhir di file
+static uint32_t lastStateChangeMs = 0; // saat relay terakhir berubah
+static bool savePending = false;       // state relay belum ditulis ke disk
+static bool dataSavePending = false;   // data aturan (anchor timer) belum ditulis
 
-// Callback bebas reentrant: dipakai oleh sensor.cpp bila perlu.
+// Jumlah relay (selalu RELAY_COUNT; helper agar kode ringkas).
 static uint8_t relayCount() {
   return RELAY_COUNT;
 }
+
+// Callback event automation (dipasang oleh mqttclient).
+static AutomationEventCb eventCb = nullptr;
 
 // =====================================================
 // CRC-8 (XOR accumulative) sederhana
@@ -95,11 +100,13 @@ static void writeDefaults() {
 
 static void recalcCrc() {
 
-  uint8_t buf[sizeof(PersistFile)];
-  memcpy(buf, &cfg, sizeof(cfg));
-  // Byte CRC tidak ikut dihitung (dibuat 0 dulu).
-  buf[offsetof(PersistHeader, crc)] = 0;
-  cfg.header.crc = computeCrc(buf, sizeof(buf));
+  // Hitung CRC in-place (tanpa buffer 1.6KB di stack): zero-kan
+  // byte CRC di struct, hitung, lalu tulis hasilnya kembali.
+  cfg.header.crc = 0;
+  cfg.header.crc = computeCrc(
+    (const uint8_t*)&cfg,
+    sizeof(cfg)
+  );
 }
 
 bool automationSave() {
@@ -155,14 +162,20 @@ void automationInit() {
     cfg.header.version == AUTO_FILE_VERSION
   ) {
 
-    uint8_t buf[sizeof(PersistFile)];
-    memcpy(buf, &cfg, sizeof(cfg));
-    buf[offsetof(PersistHeader, crc)] = 0;
+    // Verifikasi CRC in-place (zero-kan byte crc lalu hitung).
+    uint8_t storedCrc = cfg.header.crc;
+    cfg.header.crc = 0;
 
-    if (
-      cfg.header.crc ==
-      computeCrc(buf, sizeof(buf))
-    ) {
+    bool crcOk = (
+      computeCrc(
+        (const uint8_t*)&cfg,
+        sizeof(cfg)
+      ) == storedCrc
+    );
+
+    cfg.header.crc = storedCrc;
+
+    if (crcOk) {
 
       relayModes = cfg.header.relayModes;
       lastPersistedBits = cfg.header.relayState;
@@ -231,6 +244,15 @@ uint8_t automationGetRuleCount() {
 }
 
 const AutomationRule& automationGetRule(uint8_t index) {
+
+  // Bounds-check: panggil dengan index sembarang (mis. dari MQTT
+  // publishEvent) tidak boleh membaca di luar array.
+  static const AutomationRule emptyRule{};
+
+  if (index >= MAX_RULES) {
+    return emptyRule;
+  }
+
   return cfg.rules[index];
 }
 
@@ -243,6 +265,9 @@ void automationReset() {
   memset(lastSwitchMs, 0, sizeof(lastSwitchMs));
 
   lastPersistedBits = 0;
+  savePending = false;
+  dataSavePending = false;
+  lastStateChangeMs = millis();
 
   // Kondisi relay kembali semua OFF (sesuai default).
   for (uint8_t i = 0; i < relayCount(); i++) {
@@ -350,6 +375,10 @@ static bool isDayMatch(const AutomationRule& r) {
 
 static bool isInTimeRange(const AutomationRule& r, uint16_t minuteNow) {
 
+  if (r.startMin == r.endMin) {
+    return false; // rentang kosong = aturan nonaktif (bukan 24 jam)
+  }
+
   if (r.startMin < r.endMin) {
     return minuteNow >= r.startMin && minuteNow < r.endMin;
   }
@@ -419,9 +448,16 @@ static bool evaluateRule(const AutomationRule& r, uint8_t idx) {
         return false;
       }
 
-      uint32_t elapsed =
-        getEpochSec() - r.startEpoch;
+      // Subtraksi bertanda agar aman dari langkah jam mundur
+      // (manual set / NTP koreksi): elapsed dibatasi minimum 0.
+      int64_t elapsed64 =
+        (int64_t)getEpochSec() - (int64_t)r.startEpoch;
 
+      if (elapsed64 < 0) {
+        elapsed64 = 0;
+      }
+
+      uint32_t elapsed = (uint32_t)elapsed64;
       uint32_t phase = elapsed % period;
 
       return phase < r.onSec;
@@ -494,8 +530,32 @@ void automationEval() {
 
   lastEvalMs = millis();
 
-  // Persist state relay bila berubah — supaya saat restart relay
-  // kembali ke kondisi yang sama (bukan nyala semua).
+  // Aturan timer: tunda penetapan fase awal sampai NTP tersinkron.
+  // (kalau aturan disimpan saat waktu belum sinkron, startEpoch di-0;
+  //  begitu sync, set sekali lalu tersimpan.)
+  if (timeIsSynced()) {
+
+    bool changed = false;
+
+    for (uint8_t i = 0; i < cfg.header.ruleCount; i++) {
+
+      AutomationRule& r = cfg.rules[i];
+
+      if (r.type == RULE_TIMER && r.startEpoch == 0) {
+        r.startEpoch = getEpochSec();
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      dataSavePending = true;
+    }
+  }
+
+  // Pantau state relay supaya saat restart relay kembali ke kondisi
+  // yang sama (bukan nyala semua). Ditulis ke disk hanya bila state
+  // sudah stabil selama AUTO_PERSIST_MIN_MS — proteksi flash-wear:
+  // timer cepat (siklus < 30s) di-skip, timer lambat/manual tetap aman.
   uint8_t bits = 0;
 
   for (uint8_t ri = 0; ri < relayCount(); ri++) {
@@ -508,7 +568,8 @@ void automationEval() {
 
     lastPersistedBits = bits;
     cfg.header.relayState = bits;
-    automationSave();
+    lastStateChangeMs = millis();
+    savePending = true;
   }
 
   // Evaluasi setiap relay yang dalam mode AUTO.
@@ -517,6 +578,14 @@ void automationEval() {
     if (!automationGetRelayMode(relayIdx)) {
       continue; // MANUAL -> dijeda dari automation
     }
+
+    // Hasil evaluasi tiap aturan dievaluasi SEKALI per (aturan, relay)
+    // lalu disimpan — pemenang tidak dievaluasi ulang (double-eval
+    // bisa mengecoh state hysteresis untuk ambang yang berdekatan).
+    bool desired[MAX_RULES];
+    bool hasDesired[MAX_RULES];
+
+    memset(hasDesired, 0, sizeof(hasDesired));
 
     // Cari aturan pemenang (priority tertinggi, tie -> id terakhir)
     int8_t bestIdx = -1;
@@ -531,7 +600,8 @@ void automationEval() {
         continue;
       }
 
-      bool desired = evaluateRule(r, i);
+      desired[i] = evaluateRule(r, i);
+      hasDesired[i] = true;
 
       if (
         bestIdx < 0 ||
@@ -543,9 +613,6 @@ void automationEval() {
         bestPriority = r.priority;
         bestId = r.id;
       }
-
-      // simpan hasil evaluasi pada state aturan (untuk hysteresis)
-      (void)desired;
     }
 
     if (bestIdx < 0) {
@@ -554,7 +621,7 @@ void automationEval() {
 
     const AutomationRule& winner = cfg.rules[bestIdx];
 
-    bool desired = evaluateRule(winner, bestIdx);
+    bool desiredState = hasDesired[bestIdx] ? desired[bestIdx] : false;
 
     // Cooldown tidak berlaku untuk aturan timer (siklus memang
     // dijadwalkan berulang). Hanya untuk aturan sensor/jadwal
@@ -580,12 +647,12 @@ void automationEval() {
 
     bool current = getRelayState(relayIdx);
 
-    if (current == desired) {
+    if (current == desiredState) {
       continue; // sudah sesuai
     }
 
     // Terapkan
-    setRelay(relayIdx, desired);
+    setRelay(relayIdx, desiredState);
     lastSwitchMs[relayIdx] = now;
 
     if (eventCb) {
@@ -593,7 +660,28 @@ void automationEval() {
       char reason[32];
       buildReason(winner, reason, sizeof(reason));
 
-      eventCb(relayIdx, desired, bestIdx, reason);
+      eventCb(relayIdx, desiredState, bestIdx, reason);
     }
+  }
+
+  // Flush tertunda. Dua gate terpisah:
+  //  - dataSavePending (anchor timer): tulis segera — kejadian sekali
+  //    per boot, tidak boleh terlantar oleh relay yang sering berubah.
+  //  - savePending (state relay): tulis hanya bila stabil selama
+  //    AUTO_PERSIST_MIN_MS (anti flash-wear).
+  if (dataSavePending) {
+
+    dataSavePending = false;
+    savePending = false;
+    automationSave();
+
+  } else if (
+    savePending &&
+    (uint32_t)(millis() - lastStateChangeMs) >=
+      AUTO_PERSIST_MIN_MS
+  ) {
+
+    savePending = false;
+    automationSave();
   }
 }
