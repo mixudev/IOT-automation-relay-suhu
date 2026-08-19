@@ -38,7 +38,9 @@ Browser (Vercel, HTTPS)  ──WSS──►  Broker MQTT (HiveMQ Cloud)
 
 - **Sumber kebenaran aturan = di ESP8266** (persisted di LittleFS, file `auto.bin`).
   Web hanya editor; setiap perubahan dikirim via `config/set` lalu ESP membalas `config/resp`.
-- 4 tipe aturan: `time` (jadwal harian), `temp` (suhu), `timer` (siklus nyala/mati berulang via `onSec`/`offSec`, berbasis epoch NTP dan melanjutkan fase setelah reboot), `sched_temp`
+- Mesin automation menyediakan 5 tipe aturan: `time` (jadwal harian), `temp` (suhu), `hum`
+  (kelembapan — dipakai firmware, tak lagi diekspos web), `timer` (siklus nyala/mati berulang
+  via `onSec`/`offSec`, berbasis epoch NTP dan melanjutkan fase setelah reboot), `sched_temp`
   (jadwal + ambang suhu). Setiap aturan punya prioritas, cooldown, dan daftar relay target.
 - Mode per-relay `auto`/`manual` menentukan apakah aturan boleh mengontrol relay itu;
   kontrol manual dari web **mengambil alih** mode ke `manual`. Nilai sensor memakai
@@ -57,19 +59,24 @@ Browser (Vercel, HTTPS)  ──WSS──►  Broker MQTT (HiveMQ Cloud)
 ├── platformio.ini        # build config ESP8266 (PlatformIO)
 ├── PINOUT.md             # wiring & dokumentasi teknis lengkap
 ├── scripts/
-│   └── gen_secrets.ps1   # .env → src/secrets.h
-├── src/
+│   └── gen_secrets.ps1   # .env → src/config/secrets.h
+├── src/                  # firmware ESP8266 (terstruktur per modul kategori)
 │   ├── main.cpp          # setup() + loop() (orchestrasi)
-│   ├── config.h          # konfigurasi non-rahasia (pin, IP, MAX_RULES, NTP)
-│   ├── secrets.h         # GENERATED dari .env (anti commit)
-│   ├── relay.h/.cpp      # kontrol relay + state
-│   ├── sensor.h/.cpp     # DHT22: median filter, anti-spike, validitas data
-│   ├── automation.h/.cpp # mesin aturan (jadwal/suhu/lembap) + persist LittleFS
-│   ├── timeSync.h/.cpp   # sinkronisasi waktu NTP (untuk aturan jadwal)
-│   ├── status.h/.cpp     # JSON status, sensor & config (web + MQTT)
-│   ├── mqttclient.h/.cpp # MQTT TLS, reconnect non-blocking, parser perintah & aturan
-│   ├── webserver.h/.cpp  # endpoint HTTP lokal
-│   └── webpage.h/.cpp    # halaman web HTML yang disajikan ESP
+│   ├── config/
+│   │   ├── config.h      # konstanta non-rahasia (pin, IP, MAX_RULES, NTP)
+│   │   └── secrets.h     # GENERATED dari .env (anti commit)
+│   ├── hardware/
+│   │   ├── relay/        # kontrol relay + state + restore saat boot
+│   │   └── sensor/       # DHT22: median filter, anti-spike, validitas data
+│   ├── services/
+│   │   ├── wifi/         # koneksi STA + IP statis + reconnect periodik
+│   │   ├── time/         # sinkronisasi waktu NTP (untuk aturan jadwal)
+│   │   └── automation/   # mesin aturan (time/temp/timer/sched_temp) + persist
+│   ├── transport/
+│   │   ├── mqtt/         # MQTT TLS, reconnect non-blocking, parser JSON
+│   │   └── http/         # endpoint HTTP lokal + halaman web ESP
+│   └── serialization/
+│       └── status/       # JSON status & config (web + MQTT, via ArduinoJson)
 └── web/                  # aplikasi web React (SPA) → deploy ke Vercel
     ├── index.html        # entry (memuat /src/main.jsx)
     ├── config.template.js# template placeholder (boleh commit)
@@ -79,9 +86,9 @@ Browser (Vercel, HTTPS)  ──WSS──►  Broker MQTT (HiveMQ Cloud)
     └── src/
         ├── main.jsx / App.jsx     # bootstrap + layout + navigasi
         ├── config.js              # CFG + konstanta bersama (RULE_TYPES, dsb)
-        ├── styles.css             # design system + dark mode
+        ├── globals.css            # design system (light-only, indigo)
         ├── mqtt/client.js / router.js # koneksi WSS + routing pesan → store
-        ├── store/                 # Zustand: useAppStore, useRulesStore, useToastStore
+        ├── store/                 # Zustand: useAppStore, useRulesStore
         ├── components/            # ui/, dashboard/, automation/, history/, settings/
         └── utils/format.js        # helper format (huruf hari, susunan jam, label)
 ```
@@ -99,16 +106,16 @@ di dashboard Vercel (cloud). **Jangan pernah hardcode kredensial di source code.
 .env (lokal)
    │
    ▼  scripts/gen_secrets.ps1
-src/secrets.h   →   makro  SECRET_WIFI_SSID, SECRET_WIFI_PASS,
+src/config/secrets.h  →  makro  SECRET_WIFI_SSID, SECRET_WIFI_PASS,
                     SECRET_MQTT_HOST, SECRET_MQTT_PORT, SECRET_MQTT_USER,
                     SECRET_MQTT_PASS, SECRET_DEVICE_ID
    ▼
-src/config.h pakai SECRET_* untuk nilai rahasia + konstanta biasa (pin, IP)
+src/config/config.h pakai SECRET_* untuk nilai rahasia + konstanta biasa (pin, IP)
    ▼
-platformio run
+platformio run (build_flags = -I src → include berprefix modul)
 ```
 
-- Nilai **non-rahasia** (pin, IP statis, `WEB_ACCESS_KEY`, `DEVICE_ID` scaffold) → `src/config.h`.
+- Nilai **non-rahasia** (pin, IP statis, `WEB_ACCESS_KEY`, `DEVICE_ID` scaffold) → `src/config/config.h`.
   Catatan: `DEVICE_ID` nyata berada di `.env` dan masuk ke firmware lewat `secrets.h`;
   `config.h` hanya fallback/kompilasi.
 - `secretes.h` TIDAK boleh diedit manual (selalu ditimpa oleh generator).
@@ -163,8 +170,10 @@ Prefix = `DEVICE_ID` (contoh saat ini `iot_fcd5dea964a4`).
 | `<DEVICE_ID>/event`     | ESP → Web | `{"relay":2,"state":"on","source":"rule","ruleName":"..."}` |
 
 - Transport web: **WSS** port 8884; firmware: **TCP+TLS** port 8883 (HiveMQ serverless).
-- Perintah dari broker menggunakan **QoS 1**. Parser di `mqttclient.cpp` menolak payload
-  kosong/ambigu/terlalu besar (>128B), nomor relay divalidasi 1–4.
+- Perintah dari broker menggunakan **QoS 1** (subscribe command/config, dan publish status).
+  Parser di `mqttclient.cpp` menolak payload kosong/ambigu/terlalu besar (>256B perintah;
+  `config/set` maks. ~6KB), nomor relay divalidasi 1–4, dan aturan divalidasi
+  (ambang `onValue > offValue`, rentang jam 0–1439, minimal 1 hari aktif, dua fase timer ≥ 1 s).
 
 ---
 
@@ -185,7 +194,7 @@ Prefix = `DEVICE_ID` (contoh saat ini `iot_fcd5dea964a4`).
 ## 7. Aturan Wajib untuk Agent/Dev
 
 ### Keamanan (tidak bisa ditawar)
-1. **JANGAN PERNAH** commit `.env`, `src/secrets.h`, atau `web/config.gen.js`.
+1. **JANGAN PERNAH** commit `.env`, `src/config/secrets.h`, atau `web/config.gen.js`.
 2. Jangan menulis kredensial literal ke dalam source/file apa pun. Kalau terlanjur,
    segera hapus + rotasi password bersangkutan.
 3. `.gitignore` sudah meng-exclude file rahasia — jangan pernah `git add -f` file itu.

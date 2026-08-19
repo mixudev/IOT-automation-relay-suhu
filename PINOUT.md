@@ -12,13 +12,13 @@ Proyek NodeMCU ESP8266 untuk mengontrol 4 relay dan membaca sensor suhu/kelembap
 | Relay IN4  | D6          | GPIO12 | Channel relay 4                |
 | Relay GND  | GND         | -    | Ground relay                   |
 | DHT22 DATA | D7          | GPIO13 | Data sensor DHT22              |
-| DHT11 VCC  | 3V3         | -    | Catu daya 3.3V sensor          |
-| DHT11 GND  | GND         | -    | Ground sensor                  |
+| DHT22 VCC  | 3V3         | -    | Catu daya 3.3V sensor          |
+| DHT22 GND  | GND         | -    | Ground sensor                  |
 
 ## Skema Koneksi
 
 ```
-NodeMCU (ES8266)
+NodeMCU (ESP8266)
 +--------------+
 | D1 (GPIO5) ---- Relay Module IN1
 | D2 (GPIO4) ---- Relay Module IN2
@@ -190,8 +190,9 @@ Prefix topik = `DEVICE_ID` (dari `.env`), saat ini `iot_fcd5dea964a4`.
 
 ### Automation (sumber kebenaran di ESP8266)
 
-- 4 tipe aturan: `time` (jadwal harian), `temp` (suhu), `hum` (kelembapan),
-  `sched_temp` (jadwal + ambang suhu).
+- 5 tipe aturan: `time` (jadwal harian), `temp` (suhu), `hum` (kelembapan, dipakai firmware
+  tapi tidak lagi diekspos web), `timer` (siklus nyala/mati berulang via `onSec`/`offSec`,
+  berbasis epoch NTP dan melanjutkan fase setelah reboot), `sched_temp` (jadwal + ambang suhu).
 - Setiap aturan berisi relay target, hari aktif (0=Sen..6=Min), rentang `startMin`/`endMin`
   (menit sejak 00:00), ambang sensor `onValue`/`offValue` (satuan `x10`), `priority`,
   `cooldownSec`, dan `enabled`.
@@ -277,7 +278,7 @@ Nilai ekstrem/tidak masuk akal = sensor membaca **garbage**, bukan sekadar kuran
 1. **Tegangan catu daya rendah (paling sering).** DHT butuh **3.3–5.5V**. Pin `3V` (~3.0V) membuat sensor tidak stabil → nilai acak seperti `1.2°C`. Solusi: suplai VCC sensor dari pin `3V3` atau **5V terpisah**. Jangan ambil daya dari pin GPIO.
 2. **Pull-up resistor.** DHT modul biasanya sudah ada pull-up 10k. Bare sensor WAJIB diberi resistor **4.7k–10k** dari DATA ke VCC.
 3. **Kabel panjang/dekat relay.** Perpendek < 20cm dan jauhkan dari kabel relay/motor (noise).
-4. **Sensor rusak/imitasi.** DHT11 lama sudah terbukti rusak → sudah diganti DHT22 (tipe di `src/sensor.cpp`, `DHT_TYPE DHT22`).
+4. **Sensor rusak/imitasi.** DHT11 lama sudah terbukti rusak → sudah diganti DHT22 (tipe di `src/hardware/sensor/sensor.cpp`, `DHT_TYPE DHT22`).
 
 Perilaku filter di firmware:
 - Nilai NaN atau di luar rentang (-10..60°C, 0..100%) → dibuang, nilai lama dipertahankan.

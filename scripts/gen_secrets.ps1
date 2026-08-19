@@ -1,6 +1,6 @@
 # =====================================================
 # gen_secrets.ps1
-# Membaca file .env lalu menulis src/secrets.h
+# Membaca file .env lalu menulis src/config/secrets.h
 # Usage:  powershell -ExecutionPolicy Bypass -File scripts\gen_secrets.ps1
 # =====================================================
 
@@ -10,7 +10,15 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$out = "src\secrets.h"
+# Selalu relatif terhadap root repo (bukan CWD) agar aman
+# dipanggil dari direktori mana pun.
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+
+if (-not [System.IO.Path]::IsPathRooted($EnvFile)) {
+  $EnvFile = Join-Path $repoRoot $EnvFile
+}
+
+$out = "src\config\secrets.h"
 $vars = @{}
 
 if (Test-Path -LiteralPath $EnvFile) {
@@ -41,7 +49,9 @@ function Get-Val($name, $def) {
 }
 
 function Esc($s) {
-  return ($s -replace '"', '\"')
+  # Escape backslash dulu, baru kutip — keduanya karakter khusus
+  # dalam string literal C.
+  return (($s -replace '\\', '\\') -replace '"', '\"')
 }
 
 $lines = @(
@@ -66,8 +76,12 @@ $lines += @(
 
 $h = $lines -join [Environment]::NewLine
 
+$outDir = Join-Path $repoRoot "src\config"
+
+New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+
 [System.IO.File]::WriteAllText(
-  (Join-Path (Get-Location) $out),
+  (Join-Path $outDir "secrets.h"),
   $h,
   (New-Object System.Text.UTF8Encoding($false))
 )

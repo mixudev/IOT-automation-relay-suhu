@@ -45,9 +45,9 @@
 
 - **4 kanal relay** (ON/OFF) — kontrol satuan atau semua sekaligus.
 - **Mesin automation di perangkat**: aturan berbasis **jadwal harian**, **suhu**, **kelembapan**,
-  dan **jadwal + suhu** (*sched_temp*), lengkap dengan prioritas, cooldown, hysteresis, dan
-  mode per-relay `auto`/`manual` — dieksekusi langsung di ESP8266 (persisted di LittleFS), jadi
-  tetap berjalan walau web/broker tidak aktif.
+  **timer siklus** (nyala/mati berulang), dan **jadwal + suhu** (*sched_temp*), lengkap dengan
+  prioritas, cooldown, hysteresis, dan mode per-relay `auto`/`manual` — dieksekusi langsung di
+  ESP8266 (persisted di LittleFS), jadi tetap berjalan walau web/broker tidak aktif.
 - **Sinkronisasi waktu NTP** (WIB, UTC+7) untuk akurasi aturan jadwal.
 - **Sensor DHT22** suhu + kelembapan dengan filter *median 5 sampel*, *anti-spike*, dan *validitas data* — tahan terhadap pembacaan acak (garbage).
 - **Web lokal** langsung dari ESP8266 (tanpa cloud, tanpa internet).
@@ -121,11 +121,14 @@ IOT-01/
 ├── PINOUT.md               # dokumentasi wiring & teknis lengkap
 ├── AGENTS.md               # panduan kerja untuk AI/agent/kontributor
 ├── scripts/
-│   └── gen_secrets.ps1     # .env -> src/secrets.h
+│   └── gen_secrets.ps1     # .env -> src/config/secrets.h
 ├── src/                    # firmware ESP8266 (modular)
 │   ├── main.cpp            # setup + loop
-│   ├── config.h            # konfigurasi non-rahasia
-│   ├── relay/ sensor/ automation/ timeSync/ status/ mqttclient/ webserver/ webpage/
+│   ├── config/             # config.h (non-rahasia) + secrets.h (generated)
+│   ├── hardware/           # relay/ & sensor/ (DHT22)
+│   ├── services/           # wifi/ time/ automation/
+│   ├── transport/          # mqtt/ & http/ (webserver + webpage)
+│   └── serialization/      # status/ (JSON status & config)
 └── web/                    # aplikasi web React (SPA) -> Vercel
     ├── index.html, vite.config.js, vercel.json
     ├── config.template.js / config.gen.js (anti-commit)
@@ -139,7 +142,7 @@ IOT-01/
 ## Pengaturan & Konfigurasi
 
 Semua nilai rahasia (WiFi, MQTT, deviceId) disimpan di satu file **`.env`** di root,
-lalu di-generate ke `src/secrets.h` dan `web/config.gen.js` (keduanya **anti-commit**).
+lalu di-generate ke `src/config/secrets.h` dan `web/config.gen.js` (keduanya **anti-commit**).
 
 ```ini
 # salin .env.example menjadi .env, lalu isi nilai asli
@@ -200,7 +203,7 @@ vercel --prod --yes
 
 - **TLS**: firmware `WiFiClientSecure` + `setInsecure()` (tanpa verifikasi sertifikat — cukup untuk proyek hobi).
 - **Auth MQTT**: broker wajib `username`/`password`.
-- **Parser di-hardening**: tolak payload kosong/ambigu > 128B; relay divalidasi 1–4.
+- **Parser di-hardening**: tolak payload kosong/ambigu > 256B (perintah) / > 6KB (config/set); relay divalidasi 1–4.
 - **Kunci web lokal** (`WEB_ACCESS_KEY`) wajib disertakan di `?key=` untuk endpoint kontrol.
 - **Catatan:** karena tanpa backend, kredensial MQTT tetap terbaca di *Inspect* browser — batasi siapa yang menerima URL halaman.
 
