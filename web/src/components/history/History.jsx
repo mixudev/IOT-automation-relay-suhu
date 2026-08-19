@@ -7,13 +7,11 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 import { useAppStore } from "../../store/useAppStore.js";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Activity, Thermometer, Droplets } from "lucide-react";
-import EventFeed from "../dashboard/EventFeed.jsx";
 
 const METRICS = {
   temp: {
@@ -43,7 +41,7 @@ function StatCard({ label, value, icon: Icon, accent }) {
     <Card className="gap-0 py-3">
       <div className="flex flex-col gap-1 px-3.5">
         <div className="flex items-center justify-between">
-          <span className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             {label}
           </span>
           <Icon className="size-3.5 text-muted-foreground/50" />
@@ -73,7 +71,8 @@ export default function History() {
   const data = useMemo(
     () =>
       history.map((p) => ({
-        label: new Date(p.ts).toLocaleTimeString("id-ID", {
+        label: new Date(p.ts).toLocaleString("id-ID", {
+          weekday: "short",
           hour: "2-digit",
           minute: "2-digit",
         }),
@@ -99,7 +98,7 @@ export default function History() {
     ];
   }, [data, metric, m]);
 
-  const hasChart = data.length > 1;
+  const hasChart = data.length > 0;
 
   return (
     <div className="space-y-4">
@@ -142,13 +141,6 @@ export default function History() {
                     axisLine={false}
                     tickLine={false}
                     minTickGap={48}
-                    label={{
-                      value: "Jam",
-                      position: "insideBottom",
-                      offset: -4,
-                      fill: "hsl(var(--muted-foreground))",
-                      fontSize: 11,
-                    }}
                   />
                   <YAxis
                     tick={AXIS_TICK}
@@ -161,7 +153,6 @@ export default function History() {
                     contentStyle={TOOLTIP_STYLE}
                     formatter={(v) => [v.toFixed(1) + m.suffix, m.label]}
                   />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Line
                     type="monotone"
                     dataKey={metric}
@@ -185,13 +176,6 @@ export default function History() {
               </p>
             </div>
           )}
-        </Card>
-      </div>
-
-      <div className="space-y-2">
-        <h2 className="text-sm font-semibold">Log Aktivitas</h2>
-        <Card className="gap-0 py-0">
-          <EventFeed limit={40} />
         </Card>
       </div>
     </div>

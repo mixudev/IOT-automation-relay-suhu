@@ -5,7 +5,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,20 +35,17 @@ function ModeRow({ number, auto, onToggle, disabled }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b py-3 last:border-b-0">
       <div className="min-w-0">
-        <div className="text-sm font-medium">
-          Relay {number}
-          {name && name !== "Relay " + number ? " — " + name : ""}
+        <div className="truncate text-sm font-medium">
+          {name || "Relay " + number}
         </div>
         <div className="text-xs text-muted-foreground">
-          {auto
-            ? "Otomatis: aturan dapat mengendalikan relay ini"
-            : "Manual: aturan diabaikan untuk relay ini"}
+          {auto ? "Aturan dapat mengontrol relay ini" : "Relay dikunci — hanya kontrol manual"}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <Badge variant={auto ? "secondary" : "outline"} className="text-[10px]">
+        <span className="text-xs font-medium" style={{ color: auto ? "hsl(var(--primary))" : "inherit" }}>
           {auto ? "Otomatis" : "Manual"}
-        </Badge>
+        </span>
         <Switch checked={auto} onCheckedChange={onToggle} disabled={disabled} aria-label={"Mode relay " + number} />
       </div>
     </div>
@@ -85,7 +81,8 @@ export default function Settings() {
       toast.error("Nama tidak boleh kosong");
       return;
     }
-    setRelayName(editingName, val);
+    const ok = setRelayName(editingName, val);
+    if (!ok) return;
     setEditingName(null);
     toast.success("Nama relay diperbarui");
   };
@@ -273,8 +270,8 @@ export default function Settings() {
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
-                reboot();
-                toast.info("Perintah reboot terkirim");
+                const ok = reboot();
+                if (ok) toast.info("Perintah reboot terkirim");
               }}
             >
               Reboot

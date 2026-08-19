@@ -22,6 +22,7 @@ export default function RelayPicker({ relays, onChange }) {
             type="button"
             key={n}
             onClick={() => toggle(n)}
+            aria-pressed={selected}
             className={
               "flex items-center gap-2 rounded-md border px-3 py-2 text-left transition-colors " +
               (selected

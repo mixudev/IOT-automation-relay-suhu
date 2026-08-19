@@ -48,12 +48,13 @@ const projectRoot = path.join(__dirname, "..", ".."); // root proyek
 
 const env = {};
 
-// .env lokal: web/scripts, web/, root proyek, dan satu tingkat di atas
+// .env lokal: cwd, web/, dan root proyek.
+// (Sengaja TIDAK membaca satu tingkat di atas repo — .env di luar
+//  proyek bisa menimpa nilai lokal secara tak terduga.)
 for (const base of [
   cwd,
-  path.join(__dirname, ".."),
+  webDir,
   projectRoot,
-  path.join(projectRoot, ".."),
 ]) {
   Object.assign(env, loadEnvFile(path.join(base, ".env")));
 }
@@ -88,11 +89,17 @@ const outPath =
 
 let out = fs.readFileSync(templatePath, "utf8");
 
+// Escape nilai sebagai isi string literal JS (placeholder di template
+// sudah dibungkus kutip). Menghindari kutip/backslash di kredensial
+// yang bisa merusak sintaks.
+const jsStr = (v) =>
+  String(v ?? "").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+
 out = out
-  .split("__MQTT_BROKER_URL__").join(MQTT_BROKER_URL)
-  .split("__MQTT_USERNAME__").join(MQTT_USERNAME)
-  .split("__MQTT_PASSWORD__").join(MQTT_PASSWORD)
-  .split("__DEVICE_ID__").join(DEVICE_ID);
+  .split("__MQTT_BROKER_URL__").join(jsStr(MQTT_BROKER_URL))
+  .split("__MQTT_USERNAME__").join(jsStr(MQTT_USERNAME))
+  .split("__MQTT_PASSWORD__").join(jsStr(MQTT_PASSWORD))
+  .split("__DEVICE_ID__").join(jsStr(DEVICE_ID));
 
 const banner =
   "// ===========================================================\n" +

@@ -4,6 +4,7 @@ import { Power } from "lucide-react";
 
 const SRC_LABEL = {
   manual: "Manual",
+  auto: "Aturan",
   rule: "Aturan",
   http: "Web lokal",
   mqtt: "MQTT",
@@ -38,19 +39,17 @@ export default function EventFeed({ limit = 12 }) {
           : "";
 
         let desc = "";
-        if (ev.source === "rule") {
+        if (ev.source === "auto" || ev.source === "rule") {
           desc =
             (on ? "Nyalakan " : "Matikan ") +
             relayLabel +
-            " oleh aturan " +
-            (ev.ruleName || "sensor");
+            (ev.ruleName ? " — " + ev.ruleName : " — aturan");
         } else if (ev.source === "manual" || ev.source === "http") {
-          desc = (on ? "Nyalakan " : "Matikan ") + relayLabel + " secara manual";
+          desc = (on ? "Nyalakan " : "Matikan ") + relayLabel;
         } else if (ev.source === "mqtt") {
           desc = (on ? "Nyalakan " : "Matikan ") + relayLabel + " via MQTT";
         } else if (ev.source === "boot") {
-          desc =
-            "Perangkat boot — " + relayLabel + " " + (on ? "aktif" : "mati");
+          desc = "Boot — " + relayLabel + " " + (on ? "aktif" : "mati");
         } else {
           desc = (on ? "Nyalakan " : "Matikan ") + relayLabel;
         }
@@ -60,12 +59,12 @@ export default function EventFeed({ limit = 12 }) {
             key={i}
             className="flex items-center gap-3 border-b px-3.5 py-2.5 last:border-b-0"
           >
-            <span className="w-11 shrink-0 font-mono text-[11px] text-muted-foreground">
+            <span className="w-12 shrink-0 font-mono text-xs text-muted-foreground">
               {ev.ts}
             </span>
             <span
               className={
-                "w-8 shrink-0 text-[11px] font-bold " +
+                "w-7 shrink-0 text-xs font-bold " +
                 (on ? "text-emerald-600" : "text-red-600")
               }
             >
@@ -74,7 +73,7 @@ export default function EventFeed({ limit = 12 }) {
             <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={desc}>
               {desc}
             </span>
-            <Badge variant="outline" className="shrink-0 text-[10px]">
+            <Badge variant="outline" className="shrink-0 text-[11px]">
               {SRC_LABEL[ev.source] || ev.source}
             </Badge>
           </div>

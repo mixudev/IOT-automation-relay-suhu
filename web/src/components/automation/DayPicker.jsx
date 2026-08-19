@@ -21,6 +21,7 @@ export default function DayPicker({ days, onChange }) {
       <button
         type="button"
         onClick={toggleAll}
+        aria-pressed={all}
         className={
           "w-fit rounded-md border px-2.5 py-1 text-xs font-medium transition-colors " +
           (all ? DAY_VARIANT(true) : DAY_VARIANT(false))
@@ -36,6 +37,7 @@ export default function DayPicker({ days, onChange }) {
               type="button"
               key={d}
               onClick={() => toggle(i)}
+              aria-pressed={on}
               className={
                 "flex h-9 flex-col items-center justify-center rounded-md border text-xs font-medium transition-colors " +
                 DAY_VARIANT(on)
